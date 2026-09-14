@@ -34,7 +34,7 @@ async function responseError(response: Response): Promise<Error> {
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-AU", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
