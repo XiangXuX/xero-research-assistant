@@ -46,6 +46,47 @@ export interface RetrievalResponse {
   results: RetrievedEvidence[];
 }
 
+export interface ModelStatus {
+  provider: string;
+  name: string;
+  configured: boolean;
+}
+
+export interface ModelCallActivity {
+  occurred: boolean;
+  status: "not_called" | "succeeded";
+  provider?: string;
+  model?: string;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  reason?: string;
+}
+
+export interface AnswerCitation {
+  evidenceId: string;
+  chunkId: number;
+  sourceId: number;
+  sourceTitle: string;
+  sourceUrl: string;
+  retrievedAt: string;
+  supportingText: string;
+}
+
+export interface AnswerResponse {
+  question: string;
+  status: "answered" | "insufficient_evidence";
+  answer: string;
+  citationIds: string[];
+  citations: AnswerCitation[];
+  insufficientEvidence: boolean;
+  retrieval: RetrievalResponse;
+  modelCall: ModelCallActivity;
+}
+
 export interface SourceDetails extends SourceSummary {
   content: string;
   chunks: EvidenceChunk[];
@@ -55,6 +96,7 @@ export interface ResearchStateResponse {
   configuredSourceCount: number;
   storedSourceCount: number;
   databasePath: string;
+  model: ModelStatus;
   sources: SourceSummary[];
 }
 
@@ -81,4 +123,5 @@ export interface GatherResponse {
 
 export interface ErrorResponse {
   error: string;
+  code?: string;
 }

@@ -1,0 +1,28 @@
+{
+  "recordedAt": "2026-09-14T02:48:06.000Z",
+  "milestone": "Step 4 model workflow offline verification",
+  "runtimeProvider": {
+    "provider": "gemini",
+    "defaultModel": "gemini-3.1-flash-lite",
+    "liveConfiguredInVerificationEnvironment": false,
+    "liveCallClaimed": false
+  },
+  "verifiedBehaviours": [
+    "Only retrieved Top K chunks are placed in the model prompt",
+    "Valid evidence IDs map to stored source title, URL, retrieval time and supporting text",
+    "Unknown evidence IDs are rejected",
+    "Invalid model JSON is rejected",
+    "Inline evidence markers must exactly match the citations array",
+    "Weak or absent retrieval skips the model and returns insufficient_evidence",
+    "Provider HTTP errors do not expose the API key",
+    "Gemini structured responses and token usage are parsed"
+  ],
+  "checks": {
+    "typecheck": "passed",
+    "tests": "15 passed",
+    "productionBuild": "passed",
+    "strongQuestionWithoutKey": "HTTP 503 MODEL_NOT_CONFIGURED",
+    "weakQuestionWithoutKey": "HTTP 200 insufficient_evidence; model not called"
+  },
+  "remainingLiveCheck": "Add GEMINI_API_KEY to local .env, run research:gather, then run research:ask and record the real-model output without credentials."
+}

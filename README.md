@@ -60,13 +60,39 @@ queries.
 
 Query coverage produces a visible `strong`, `weak` or `none` match label. For example,
 a question about Martian weather may overlap with Xero's phrase “cash-flow forecast”,
-but only one question concept is covered, so the result is marked weak. The generation
-step must treat weak retrieval as potentially insufficient evidence.
+but only one question concept is covered, so the result is marked weak and generation
+is skipped.
 
 BM25 is appropriate for the initial 33-chunk corpus because it is deterministic,
 inspectable, credential-free and incurs no model or embedding cost. Its main weakness
 is vocabulary mismatch; if the corpus grows substantially or users rely on paraphrases,
 a vector or hybrid lexical/vector retrieval stage would be a justified next step.
+
+## Generate a grounded answer
+
+The runtime model is separate from development assistants such as Codex. The default
+provider is Google's `gemini-3.1-flash-lite`, selected for structured JSON output and
+its current free tier. Create a key in
+[Google AI Studio](https://aistudio.google.com/app/apikey), copy `.env.example` to
+`.env`, and set `GEMINI_API_KEY` locally. ChatGPT subscriptions do not supply this API
+credential.
+
+```bash
+npm run research:ask -- "What pricing plans does Xero offer in Australia?"
+```
+
+For strong retrieval, the backend sends only the question and Top 5 evidence passages
+to the `ModelProvider`. The prompt forbids outside knowledge and requires inline `[E#]`
+markers plus a JSON citation list. A JSON Schema constrains generation; application
+code then rejects malformed JSON, missing citations, unknown IDs, or disagreement
+between inline markers and the citation list. Valid IDs are mapped server-side to the
+stored title, URL, retrieval time and exact supporting text. Weak or absent retrieval
+returns `insufficient_evidence` without a model call.
+
+The API key never reaches React, logs or Git. The provider uses a 30-second timeout,
+does not request provider-side storage, and reports token usage when available. Free
+tier limits and policies may change; public Xero passages only are sent in this
+exercise. See the official [structured-output documentation](https://ai.google.dev/gemini-api/docs/structured-output).
 
 ## Offline verification
 
@@ -78,12 +104,12 @@ npm run build
 
 The credential-free tests cover HTML noise removal, bounded chunk creation, database
 persistence after reopening, configuration-driven source replacement, retrieval
-ranking, Top K limits, traceable metadata, and weak unrelated matches. They do not
-access Xero or a model. Compact metadata-only records of verified live runs are in
-`evaluation/`.
+ranking, Top K limits, traceable citations, invalid model JSON/IDs, weak-evidence
+short-circuiting and provider HTTP failure. Tests use injected fakes and do not access
+Xero or a model. Compact run records are in `evaluation/`.
 
 ## Current milestone
 
-Steps 1–3 are implemented: the web skeleton, gathering and persistence, source/chunk
-inspection, visible reuse/failure results, and Top 5 BM25 retrieval. Real-model
-grounded answer generation is the next milestone.
+Steps 1–3 and the Step 4 model workflow are implemented. A real Gemini call still
+requires a locally supplied key and must be recorded before submission. The unified
+answer/evidence/activity web interface is the next milestone.
