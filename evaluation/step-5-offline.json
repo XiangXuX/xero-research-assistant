@@ -23,5 +23,22 @@
     "failureSafety": "Existing tests verify previously stored evidence survives a failed replacement fetch."
   },
   "credentialsUsed": false,
-  "liveModelEvidence": "See evaluation/step-4-live.json"
+  "liveModelEvidence": "See evaluation/step-4-live.json",
+  "manualBrowserVerification": {
+    "liveGroundedAnswer": {
+      "question": "What pricing plans does Xero offer in Australia?",
+      "status": "answered",
+      "retrieval": "strong; 5/5 chunks",
+      "model": "gemini/gemini-3.1-flash-lite",
+      "durationMs": 1853,
+      "validatedCitations": 2
+    },
+    "insufficientEvidence": {
+      "question": "Does Xero provide weather forecasts for Mars?",
+      "status": "insufficient_evidence",
+      "retrieval": "weak; 5/5 chunks",
+      "modelCallOccurred": false,
+      "validatedCitations": 0
+    }
+  }
 }
