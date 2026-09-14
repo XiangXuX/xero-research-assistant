@@ -1,0 +1,52 @@
+{
+  "recordedAt": "2026-09-14T07:45:02Z",
+  "milestone": "Step 4 real-model grounded answer verification",
+  "environment": {
+    "platform": "Windows PowerShell",
+    "node": "v24.19.0",
+    "npm": "11.17.0"
+  },
+  "research": {
+    "configuredSources": 4,
+    "storedChunks": 33,
+    "firstGather": "4 fetched, 0 reused, 0 failed",
+    "repeatedGather": "0 fetched, 4 reused, 0 failed"
+  },
+  "question": "What pricing plans does Xero offer in Australia?",
+  "result": {
+    "status": "answered",
+    "answer": "As of September 2026, Xero offers the following base pricing plans in Australia: Ignite, Grow, Comprehensive, Ultimate, and Ultra [E1]. Prices for these plans are listed in AUD and include GST [E2].",
+    "retrieval": "strong; 5/5 chunks",
+    "model": "gemini/gemini-3.1-flash-lite",
+    "modelCallOccurred": true,
+    "durationMs": 2145,
+    "validatedCitationCount": 2
+  },
+  "citations": [
+    {
+      "evidenceId": "E1",
+      "chunkId": 19,
+      "sourceTitle": "Pricing Plans | Xero AU",
+      "sourceUrl": "https://www.xero.com/au/pricing-plans/",
+      "retrievedAt": "2026-09-14T07:28:17.862Z",
+      "supportingExcerpt": "Discount applies to base Ignite, Grow, Comprehensive, Ultimate or Ultra plan subscriptions."
+    },
+    {
+      "evidenceId": "E2",
+      "chunkId": 18,
+      "sourceTitle": "Pricing Plans | Xero AU",
+      "sourceUrl": "https://www.xero.com/au/pricing-plans/",
+      "retrievedAt": "2026-09-14T07:28:17.862Z",
+      "supportingExcerpt": "Prices are in AUD and include GST. Xero subscriptions auto-renew monthly until they are cancelled."
+    }
+  ],
+  "safeFailureObserved": {
+    "occurredBeforeSuccessfulRun": true,
+    "message": "Inline evidence markers must exactly match the citations array.",
+    "outcome": "No answer was accepted or presented as successful.",
+    "reviewedChange": "The validator was updated to recognise grouped markers such as [E1, E2] while retaining the allowlist and exact-set checks.",
+    "verificationAfterChange": "3 test files passed; 16 tests passed"
+  },
+  "credentialsRecorded": false,
+  "fullDownloadedPagesRecorded": false
+}

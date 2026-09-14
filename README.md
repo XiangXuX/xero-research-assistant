@@ -106,10 +106,10 @@ The credential-free tests cover HTML noise removal, bounded chunk creation, data
 persistence after reopening, configuration-driven source replacement, retrieval
 ranking, Top K limits, traceable citations, invalid model JSON/IDs, weak-evidence
 short-circuiting and provider HTTP failure. Tests use injected fakes and do not access
-Xero or a model. Compact run records are in `evaluation/`.
+Xero or a model. Compact run records are in `evaluation/`, including the
+[successful real-model run](evaluation/step-4-live.json).
 
 ## Current milestone
 
-Steps 1–3 and the Step 4 model workflow are implemented. A real Gemini call still
-requires a locally supplied key and must be recorded before submission. The unified
-answer/evidence/activity web interface is the next milestone.
+Steps 1–4 are implemented, including a successful real Gemini call with two validated
+citations. The unified answer/evidence/activity web interface is the next milestone.
