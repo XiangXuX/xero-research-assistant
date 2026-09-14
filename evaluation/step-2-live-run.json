@@ -1,0 +1,52 @@
+{
+  "recordedAt": "2026-09-14T05:07:28.223Z",
+  "runtime": "Node.js v24.19.0",
+  "firstGather": {
+    "startedAt": "2026-09-14T05:04:32.897Z",
+    "completedAt": "2026-09-14T05:04:51.504Z",
+    "fetched": 4,
+    "reused": 0,
+    "failed": 0,
+    "sources": [
+      {
+        "key": "accounting-software",
+        "retrievedAt": "2026-09-14T05:04:49.161Z",
+        "contentLength": 10913,
+        "chunkCount": 12
+      },
+      {
+        "key": "pricing-plans",
+        "retrievedAt": "2026-09-14T05:04:50.140Z",
+        "contentLength": 8760,
+        "chunkCount": 10
+      },
+      {
+        "key": "small-businesses",
+        "retrievedAt": "2026-09-14T05:04:50.745Z",
+        "contentLength": 6511,
+        "chunkCount": 7
+      },
+      {
+        "key": "accounting-partners",
+        "retrievedAt": "2026-09-14T05:04:51.504Z",
+        "contentLength": 3261,
+        "chunkCount": 4
+      }
+    ]
+  },
+  "repeatedGather": {
+    "startedAt": "2026-09-14T05:07:28.222Z",
+    "completedAt": "2026-09-14T05:07:28.223Z",
+    "fetched": 0,
+    "reused": 4,
+    "failed": 0,
+    "retrievalTimesUnchanged": true
+  },
+  "offlineChecks": {
+    "typecheck": "passed",
+    "tests": "4 passed",
+    "productionBuild": "passed",
+    "coveredFailure": "mock HTTP 503 preserves previously stored evidence"
+  },
+  "note": "Only run metadata is committed. Extracted Xero content remains in the ignored local SQLite database."
+}
