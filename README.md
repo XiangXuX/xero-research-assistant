@@ -23,13 +23,15 @@ Use the **Gather research** button in the web application, or run:
 
 ```bash
 npm run research:gather
+npm run research:refresh
 npm run research:inspect
 ```
 
-The first command fetches and processes the configured pages. A later gather reuses
-each unchanged configured source without a network request or reprocessing. The
-second command opens the persisted database in a new process and prints every stored
-source and chunk, providing a simple persistence and traceability check.
+The first command fetches missing pages and later reuses unchanged stored research.
+The refresh command explicitly fetches and reprocesses every configured source. The
+inspect command opens the persisted database in a new process and prints every stored
+source and chunk, providing a simple persistence and traceability check. These actions
+are also available through the web interface.
 
 The four initial Australian sources cover the product, pricing, small-business users,
 and accounting partners. They are configured in
@@ -44,7 +46,7 @@ content.
 
 ## Retrieve evidence
 
-Use the Step 3 form in the web application, or run a question from the terminal:
+Inspect retrieval independently from the terminal:
 
 ```bash
 npm run research:retrieve -- "What pricing plans does Xero offer in Australia?"
@@ -81,6 +83,10 @@ credential.
 npm run research:ask -- "What pricing plans does Xero offer in Australia?"
 ```
 
+The same workflow is available from the web question form. Its Answer, Supporting
+Evidence and Activity Log sections expose the result, validated source passages, and
+whether a model call occurred.
+
 For strong retrieval, the backend sends only the question and Top 5 evidence passages
 to the `ModelProvider`. The prompt forbids outside knowledge and requires inline `[E#]`
 markers plus a JSON citation list. A JSON Schema constrains generation; application
@@ -111,5 +117,5 @@ Xero or a model. Compact run records are in `evaluation/`, including the
 
 ## Current milestone
 
-Steps 1–4 are implemented, including a successful real Gemini call with two validated
-citations. The unified answer/evidence/activity web interface is the next milestone.
+Steps 1–5 are implemented, including a successful real Gemini call, explicit refresh,
+validated citations, expandable evidence and visible fetch/reuse/model activity.

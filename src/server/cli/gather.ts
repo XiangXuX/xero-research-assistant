@@ -4,7 +4,7 @@ import { closeResearchDatabase } from "../database/index.js";
 import { gatherResearch } from "../research/gather-research.js";
 
 try {
-  const result = await gatherResearch();
+  const result = await gatherResearch({ forceRefresh: process.argv.includes("--refresh") });
   console.log(JSON.stringify(result, null, 2));
   if (result.failed === result.results.length) {
     process.exitCode = 1;
@@ -12,4 +12,3 @@ try {
 } finally {
   closeResearchDatabase();
 }
-

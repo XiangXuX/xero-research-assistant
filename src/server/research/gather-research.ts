@@ -11,6 +11,7 @@ import { fetchPageHtml } from "./fetch-page.js";
 import { configuredSources, type ConfiguredSource } from "./sources.js";
 
 export interface GatherResearchOptions {
+  forceRefresh?: boolean;
   sources?: readonly ConfiguredSource[];
   repository?: Pick<ResearchRepository, "findByKey" | "saveSource">;
   fetchHtml?: typeof fetchPageHtml;
@@ -41,10 +42,12 @@ export async function gatherResearch(
   const logger = options.logger ?? console;
   const startedAt = now().toISOString();
   const results: GatherSourceResult[] = [];
+  const forceRefresh = options.forceRefresh ?? false;
 
   for (const configuredSource of sources) {
     const existing = repository.findByKey(configuredSource.key);
     if (
+      !forceRefresh &&
       existing &&
       existing.url === configuredSource.url &&
       existing.contentLength > 0 &&

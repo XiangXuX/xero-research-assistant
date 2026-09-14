@@ -1,0 +1,27 @@
+{
+  "recordedAt": "2026-09-14T07:58:09Z",
+  "milestone": "Step 5 unified web interface verification",
+  "implementedAreas": [
+    "Research Sources with retrieval times and stored chunk inspection",
+    "Gather / reuse and explicit Refresh all controls",
+    "Question form using the grounded answer endpoint",
+    "Answer status with retrieval and model-call metadata",
+    "Expandable Supporting Evidence with title, URL, retrieval time and exact stored text",
+    "Activity Log for startup, fetch, reuse, refresh, model calls, skips and errors"
+  ],
+  "checks": {
+    "tests": "3 files passed; 17 tests passed",
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "readmeWordCount": 748,
+    "devClient": "served successfully on localhost:5173",
+    "researchState": "4 stored sources returned through the Vite API proxy",
+    "weakQuestion": "HTTP 200 insufficient_evidence; model call not called"
+  },
+  "refreshVerification": {
+    "automatedTest": "An unchanged configured source is fetched and atomically replaced when forceRefresh is true.",
+    "failureSafety": "Existing tests verify previously stored evidence survives a failed replacement fetch."
+  },
+  "credentialsUsed": false,
+  "liveModelEvidence": "See evaluation/step-4-live.json"
+}

@@ -126,4 +126,44 @@ describe("research processing", () => {
       database.close();
     }
   });
+
+  it("explicitly refreshes and replaces an unchanged configured source", async () => {
+    const database = openResearchDatabase(":memory:");
+    const repository = new ResearchRepository(database);
+    const url = "https://www.xero.com/au/pricing-plans/";
+    repository.saveSource({
+      key: "pricing-plans",
+      url,
+      title: "Previously stored pricing page",
+      retrievedAt: "2026-09-13T01:00:00.000Z",
+      contentHash: "old-hash",
+      content: "Previously stored pricing evidence.",
+      chunks: ["Previously stored pricing evidence."],
+    });
+    let fetchCalls = 0;
+
+    try {
+      const result = await gatherResearch({
+        forceRefresh: true,
+        sources: [{ key: "pricing-plans", url, topic: "Australian pricing" }],
+        repository,
+        fetchHtml: async () => {
+          fetchCalls += 1;
+          return readFileSync(fixturePath, "utf8");
+        },
+        now: () => new Date("2026-09-14T03:00:00.000Z"),
+        logger: { info: () => undefined, error: () => undefined },
+      });
+
+      expect(fetchCalls).toBe(1);
+      expect(result.fetched).toBe(1);
+      expect(result.reused).toBe(0);
+      expect(repository.findByKey("pricing-plans")).toMatchObject({
+        title: "Xero accounting software for small businesses",
+        retrievedAt: "2026-09-14T03:00:00.000Z",
+      });
+    } finally {
+      database.close();
+    }
+  });
 });

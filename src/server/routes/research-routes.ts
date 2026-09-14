@@ -36,9 +36,9 @@ researchRouter.get("/", (_request, response) => {
   response.json(body);
 });
 
-researchRouter.post("/gather", async (_request, response, next) => {
+researchRouter.post("/gather", async (request, response, next) => {
   try {
-    response.json(await gatherResearch());
+    response.json(await gatherResearch({ forceRefresh: request.body?.refresh === true }));
   } catch (error) {
     next(error);
   }
