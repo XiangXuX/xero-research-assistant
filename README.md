@@ -42,6 +42,32 @@ The local database path is controlled by `RESEARCH_DB_PATH` and defaults to
 contains processing code and a synthetic HTML test fixture, not downloaded Xero
 content.
 
+## Retrieve evidence
+
+Use the Step 3 form in the web application, or run a question from the terminal:
+
+```bash
+npm run research:retrieve -- "What pricing plans does Xero offer in Australia?"
+```
+
+The retrieval service reads the stored chunks, normalises useful question terms,
+applies small transparent synonym expansions, and ranks lexical matches with BM25.
+Source titles, keys and URLs receive a modest metadata boost. It returns at most the
+Top 5 matched chunks with an evidence label, database chunk ID, source title, URL,
+retrieval date, score, query coverage and matched terms. The raw score orders chunks
+within one search; it is not a probability and should not be compared across unrelated
+queries.
+
+Query coverage produces a visible `strong`, `weak` or `none` match label. For example,
+a question about Martian weather may overlap with Xero's phrase “cash-flow forecast”,
+but only one question concept is covered, so the result is marked weak. The generation
+step must treat weak retrieval as potentially insufficient evidence.
+
+BM25 is appropriate for the initial 33-chunk corpus because it is deterministic,
+inspectable, credential-free and incurs no model or embedding cost. Its main weakness
+is vocabulary mismatch; if the corpus grows substantially or users rely on paraphrases,
+a vector or hybrid lexical/vector retrieval stage would be a justified next step.
+
 ## Offline verification
 
 ```bash
@@ -51,12 +77,13 @@ npm run build
 ```
 
 The credential-free tests cover HTML noise removal, bounded chunk creation, database
-persistence after reopening, and configuration-driven source replacement. They do
-not access Xero or a model. A compact metadata-only record of the verified live and
-repeat runs is in `evaluation/step-2-live-run.json`.
+persistence after reopening, configuration-driven source replacement, retrieval
+ranking, Top K limits, traceable metadata, and weak unrelated matches. They do not
+access Xero or a model. Compact metadata-only records of verified live runs are in
+`evaluation/`.
 
 ## Current milestone
 
-Step 2 is implemented: configuration, fetching, extraction, chunking, SQLite
-persistence, source/chunk inspection, and visible fetched/reused/failed results.
-Retrieval and real-model grounded answers are the next milestone.
+Steps 1–3 are implemented: the web skeleton, gathering and persistence, source/chunk
+inspection, visible reuse/failure results, and Top 5 BM25 retrieval. Real-model
+grounded answer generation is the next milestone.

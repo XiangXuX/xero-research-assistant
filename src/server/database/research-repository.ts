@@ -24,6 +24,24 @@ interface ChunkRow {
   content: string;
 }
 
+interface SearchableChunkRow extends ChunkRow {
+  source_key: string;
+  title: string;
+  url: string;
+  retrieved_at: string;
+}
+
+export interface SearchableChunk {
+  id: number;
+  sourceId: number;
+  position: number;
+  content: string;
+  sourceKey: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  retrievedAt: string;
+}
+
 export interface PersistedResearch {
   key: string;
   url: string;
@@ -115,6 +133,36 @@ export class ResearchRepository {
         }),
       ),
     };
+  }
+
+  listSearchableChunks(): SearchableChunk[] {
+    const rows = this.database
+      .prepare(`
+        SELECT
+          c.id,
+          c.source_id,
+          c.position,
+          c.content,
+          s.source_key,
+          s.title,
+          s.url,
+          s.retrieved_at
+        FROM chunks c
+        INNER JOIN sources s ON s.id = c.source_id
+        ORDER BY c.id
+      `)
+      .all() as unknown as SearchableChunkRow[];
+
+    return rows.map((row) => ({
+      id: row.id,
+      sourceId: row.source_id,
+      position: row.position,
+      content: row.content,
+      sourceKey: row.source_key,
+      sourceTitle: row.title,
+      sourceUrl: row.url,
+      retrievedAt: row.retrieved_at,
+    }));
   }
 
   saveSource(research: PersistedResearch): SourceSummary {

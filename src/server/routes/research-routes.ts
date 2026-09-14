@@ -9,6 +9,7 @@ import { appConfig } from "../config.js";
 import { researchRepository } from "../database/index.js";
 import { gatherResearch } from "../research/gather-research.js";
 import { configuredSources } from "../research/sources.js";
+import { retrieveEvidence } from "../retrieval/retrieve-evidence.js";
 
 export const researchRouter = Router();
 
@@ -30,6 +31,20 @@ researchRouter.post("/gather", async (_request, response, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+researchRouter.post("/retrieve", (request, response) => {
+  const question = typeof request.body?.question === "string" ? request.body.question.trim() : "";
+  if (!question || question.length > 500) {
+    const body: ErrorResponse = {
+      error: "Question must contain between 1 and 500 characters.",
+    };
+    response.status(400).json(body);
+    return;
+  }
+
+  const chunks = researchRepository.listSearchableChunks();
+  response.json(retrieveEvidence(question, chunks));
 });
 
 researchRouter.get("/sources/:sourceId", (request, response) => {

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import type {
   ErrorResponse,
   GatherResponse,
   HealthResponse,
   ResearchStateResponse,
+  RetrievalResponse,
   SourceDetails,
 } from "../shared/contracts.js";
 
@@ -30,8 +31,11 @@ export function App() {
   const [connection, setConnection] = useState<ConnectionState>("checking");
   const [research, setResearch] = useState<ResearchStateResponse | null>(null);
   const [gatherResult, setGatherResult] = useState<GatherResponse | null>(null);
+  const [question, setQuestion] = useState("");
+  const [retrievalResult, setRetrievalResult] = useState<RetrievalResponse | null>(null);
   const [selectedSource, setSelectedSource] = useState<SourceDetails | null>(null);
   const [isGathering, setIsGathering] = useState(false);
+  const [isRetrieving, setIsRetrieving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function loadResearch(signal?: AbortSignal) {
@@ -102,6 +106,32 @@ export function App() {
     }
   }
 
+  async function retrieveForQuestion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsRetrieving(true);
+    setError(null);
+    setRetrievalResult(null);
+
+    try {
+      const response = await fetch("/api/research/retrieve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      if (!response.ok) {
+        throw await responseError(response);
+      }
+
+      setRetrievalResult((await response.json()) as RetrievalResponse);
+    } catch (retrievalError) {
+      setError(
+        retrievalError instanceof Error ? retrievalError.message : "Evidence retrieval failed.",
+      );
+    } finally {
+      setIsRetrieving(false);
+    }
+  }
+
   const storedCount = research?.storedSourceCount ?? 0;
   const configuredCount = research?.configuredSourceCount ?? 4;
 
@@ -113,7 +143,7 @@ export function App() {
           <h1>Xero Research Assistant</h1>
           <p className="description">
             Gather a small set of public Xero pages, retain the extracted evidence,
-            and inspect exactly what the application stored.
+            and retrieve the most relevant stored passages for each question.
           </p>
         </div>
         <div className="hero__meta">
@@ -125,6 +155,88 @@ export function App() {
             <strong>{storedCount}</strong> of {configuredCount} sources stored
           </p>
         </div>
+      </section>
+
+      <section className="retrieval-view" aria-labelledby="retrieval-heading">
+        <div className="section-heading">
+          <div>
+            <p className="section-kicker">Step 3</p>
+            <h2 id="retrieval-heading">Retrieve relevant evidence</h2>
+            <p>
+              BM25 keyword ranking searches stored chunks and returns at most five.
+              No model is called at this stage.
+            </p>
+          </div>
+        </div>
+
+        <form className="question-form" onSubmit={(event) => void retrieveForQuestion(event)}>
+          <label htmlFor="question">Question about the stored Xero research</label>
+          <div className="question-form__controls">
+            <textarea
+              id="question"
+              name="question"
+              rows={3}
+              maxLength={500}
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="What pricing plans does Xero offer in Australia?"
+            />
+            <button
+              type="submit"
+              disabled={isRetrieving || storedCount === 0 || !question.trim()}
+            >
+              {isRetrieving ? "Searching chunks..." : "Retrieve Top 5"}
+            </button>
+          </div>
+          {storedCount === 0 ? (
+            <p className="form-hint">Gather research before running retrieval.</p>
+          ) : null}
+        </form>
+
+        {retrievalResult ? (
+          <div className="retrieval-results" aria-live="polite">
+            <div className="retrieval-summary">
+              <strong>{retrievalResult.results.length} evidence chunks returned</strong>
+              <span className={`match-quality match-quality--${retrievalResult.matchQuality}`}>
+                {retrievalResult.matchQuality} match
+              </span>
+              <span>
+                Searched {retrievalResult.totalChunksSearched} stored chunks using{" "}
+                {retrievalResult.method}
+              </span>
+            </div>
+
+            {retrievalResult.results.length > 0 ? (
+              <ol className="retrieval-list">
+                {retrievalResult.results.map((evidence) => (
+                  <li key={evidence.id}>
+                    <div className="retrieval-list__topline">
+                      <strong>{evidence.evidenceId}</strong>
+                      <span>Score {evidence.score.toFixed(4)}</span>
+                      <span>Coverage {Math.round(evidence.queryCoverage * 100)}%</span>
+                      <span>Chunk ID {evidence.id}</span>
+                      <span>Stored chunk {evidence.position + 1}</span>
+                    </div>
+                    <h3>{evidence.sourceTitle}</h3>
+                    <a href={evidence.sourceUrl} target="_blank" rel="noreferrer">
+                      {evidence.sourceUrl}
+                    </a>
+                    <p>{evidence.content}</p>
+                    <small>Matched terms: {evidence.matchedTerms.join(", ")}</small>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="no-match" role="status">
+                <strong>No relevant stored evidence found.</strong>
+                <p>
+                  The question had no useful lexical overlap with the stored chunks;
+                  no unrelated evidence was substituted.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <section className="workspace" aria-labelledby="research-heading">

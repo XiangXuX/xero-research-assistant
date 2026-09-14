@@ -24,6 +24,28 @@ export interface EvidenceChunk {
   content: string;
 }
 
+export interface RetrievedEvidence extends EvidenceChunk {
+  evidenceId: string;
+  sourceKey: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  retrievedAt: string;
+  score: number;
+  queryCoverage: number;
+  matchedTerms: string[];
+}
+
+export interface RetrievalResponse {
+  question: string;
+  method: "bm25-keyword";
+  searchedAt: string;
+  totalChunksSearched: number;
+  topK: number;
+  queryTerms: string[];
+  matchQuality: "strong" | "weak" | "none";
+  results: RetrievedEvidence[];
+}
+
 export interface SourceDetails extends SourceSummary {
   content: string;
   chunks: EvidenceChunk[];

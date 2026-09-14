@@ -1,0 +1,61 @@
+{
+  "recordedAt": "2026-09-14T01:36:00.000Z",
+  "method": "bm25-keyword",
+  "topK": 5,
+  "storedChunks": 33,
+  "checks": [
+    {
+      "question": "What pricing plans does Xero offer in Australia?",
+      "matchQuality": "strong",
+      "firstResult": {
+        "evidenceId": "E1",
+        "chunkId": 19,
+        "sourceKey": "pricing-plans",
+        "sourceTitle": "Pricing Plans | Xero AU",
+        "sourceUrl": "https://www.xero.com/au/pricing-plans/",
+        "storedChunkNumber": 7,
+        "score": 6.5143,
+        "queryCoverage": 1,
+        "matchedTerms": ["price", "plan", "offer"]
+      }
+    },
+    {
+      "question": "What customers is Xero designed for?",
+      "matchQuality": "strong",
+      "firstResult": {
+        "evidenceId": "E1",
+        "chunkId": 3,
+        "sourceKey": "accounting-software",
+        "sourceTitle": "Accounting Software for Australian Small Businesses | Xero AU",
+        "sourceUrl": "https://www.xero.com/au/accounting-software/",
+        "storedChunkNumber": 3,
+        "score": 3.3525,
+        "queryCoverage": 1,
+        "matchedTerms": ["customer", "business", "small"]
+      },
+      "smallBusinessTopicIncludedInTop5": true
+    },
+    {
+      "question": "Does Xero provide weather forecasts for Mars?",
+      "matchQuality": "weak",
+      "firstResult": {
+        "evidenceId": "E1",
+        "chunkId": 17,
+        "sourceKey": "pricing-plans",
+        "sourceTitle": "Pricing Plans | Xero AU",
+        "sourceUrl": "https://www.xero.com/au/pricing-plans/",
+        "storedChunkNumber": 5,
+        "score": 1.5961,
+        "queryCoverage": 0.33,
+        "matchedTerms": ["forecast"]
+      },
+      "interpretation": "Only the word forecast overlaps; the stored evidence is about cash-flow forecasting, not weather or Mars."
+    }
+  ],
+  "offlineChecks": {
+    "typecheck": "passed",
+    "tests": "8 passed",
+    "productionBuild": "passed"
+  },
+  "contentPolicy": "Only retrieval metadata is committed; full extracted Xero content remains in the ignored SQLite database."
+}
