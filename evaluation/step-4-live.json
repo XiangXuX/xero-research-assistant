@@ -47,6 +47,14 @@
     "reviewedChange": "The validator was updated to recognise grouped markers such as [E1, E2] while retaining the allowlist and exact-set checks.",
     "verificationAfterChange": "3 test files passed; 16 tests passed"
   },
+  "insufficientEvidenceCheck": {
+    "question": "Does Xero provide weather forecasts for Mars?",
+    "retrieval": "weak; 5/5 chunks",
+    "status": "insufficient_evidence",
+    "answer": "The stored research does not provide enough relevant evidence to answer this question reliably.",
+    "modelCallOccurred": false,
+    "reason": "Retrieval match was weak; the model call was skipped to avoid an unsupported answer."
+  },
   "credentialsRecorded": false,
   "fullDownloadedPagesRecorded": false
 }
