@@ -16,9 +16,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function inlineCitationIds(answer: string): string[] {
-  return [...new Set([...answer.matchAll(/\[(E\d+)\]/g)].map((match) => match[1]))].filter(
-    (value): value is string => Boolean(value),
-  );
+  const citationGroups = [...answer.matchAll(/\[((?:E\d+\s*,\s*)*E\d+)\]/g)];
+  const citationIds = citationGroups.flatMap((group) => group[1]?.match(/E\d+/g) ?? []);
+
+  return [...new Set(citationIds)];
 }
 
 function sameStringSet(left: string[], right: string[]): boolean {

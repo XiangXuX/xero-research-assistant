@@ -166,6 +166,24 @@ describe("grounded model workflow", () => {
     ).rejects.toThrow("Inline evidence markers must exactly match");
   });
 
+  it("accepts multiple valid evidence ids in one inline citation group", async () => {
+    const provider = new StubModelProvider(
+      JSON.stringify({
+        answer: "Xero offers Australian plans with monthly subscriptions [E1, E2].",
+        citations: ["E1", "E2"],
+        insufficientEvidence: false,
+      }),
+    );
+
+    const result = await answerQuestion(
+      "What pricing plans does Xero offer in Australia?",
+      { repository: repositoryWithEvidence(), provider, logger: quietLogger },
+    );
+
+    expect(result.status).toBe("answered");
+    expect(result.citations.map((citation) => citation.evidenceId)).toEqual(["E1", "E2"]);
+  });
+
   it("skips the model when retrieval evidence is weak", async () => {
     const provider = new StubModelProvider(
       JSON.stringify({
