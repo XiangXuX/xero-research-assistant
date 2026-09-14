@@ -1,0 +1,60 @@
+{
+  "step": 6,
+  "mode": "offline credential-free verification",
+  "verifiedAt": "2026-09-14T09:47:53.000Z",
+  "commands": [
+    "npm test",
+    "npm run typecheck",
+    "npm run build"
+  ],
+  "result": {
+    "testFilesPassed": 3,
+    "testsPassed": 19,
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "verifiedBehaviour": [
+    {
+      "scenario": "Gather an unchanged successfully stored source",
+      "expectedEvents": ["SOURCE_REUSED"],
+      "assertions": {
+        "networkFetchCalls": 0,
+        "contentExtractionCalls": 0,
+        "chunkingCalls": 0
+      }
+    },
+    {
+      "scenario": "Ask two consecutive supported questions",
+      "expectedEventsPerQuestion": [
+        "RETRIEVAL_COMPLETED",
+        "MODEL_CALL_STARTED",
+        "MODEL_CALL_COMPLETED"
+      ],
+      "assertions": {
+        "modelCalls": 2,
+        "researchSource": "stored SQLite chunks"
+      }
+    },
+    {
+      "scenario": "Explicitly refresh an unchanged configured source",
+      "expectedEvents": ["SOURCE_FETCHED", "SOURCE_PROCESSED"],
+      "assertions": {
+        "networkFetchCalls": 1,
+        "retrievalTimeUpdated": true,
+        "replacementIsAtomic": true
+      }
+    },
+    {
+      "scenario": "Ask a question with weak retrieval",
+      "expectedEvents": ["RETRIEVAL_COMPLETED", "MODEL_CALL_SKIPPED"],
+      "assertions": {
+        "modelCalls": 0,
+        "unsupportedAnswerReturned": false
+      }
+    }
+  ],
+  "notes": [
+    "The tests use in-memory SQLite, injected fetch functions and a stub model provider.",
+    "No Xero page, Gemini API or credential is accessed by this verification path."
+  ]
+}

@@ -113,9 +113,26 @@ persistence after reopening, configuration-driven source replacement, retrieval
 ranking, Top K limits, traceable citations, invalid model JSON/IDs, weak-evidence
 short-circuiting and provider HTTP failure. Tests use injected fakes and do not access
 Xero or a model. Compact run records are in `evaluation/`, including the
-[successful real-model run](evaluation/step-4-live.json).
+[successful real-model run](evaluation/step-4-live.json) and the
+[credential-free Step 6 verification](evaluation/step-6-offline.json).
+
+## Reuse, refresh and activity
+
+Question answering and page gathering are separate backend paths. Asking a question
+reads stored chunks from SQLite and may call Gemini, but it cannot invoke the page
+fetcher or chunker. **Gather / reuse** skips network and processing for an unchanged,
+successfully stored source. **Refresh all** explicitly fetches and atomically replaces
+each source; a failed refresh leaves the last known-good evidence and retrieval time
+unchanged.
+
+The web Activity Log displays backend workflow events such as `SOURCE_REUSED`,
+`SOURCE_FETCHED`, `SOURCE_PROCESSED`, `RETRIEVAL_COMPLETED`,
+`MODEL_CALL_STARTED`, and `MODEL_CALL_COMPLETED`. This lets a reviewer compare reuse,
+refresh and repeated-question runs without reading source code. Tests also assert that
+an unchanged Gather makes zero fetch, extraction and chunking calls, while consecutive
+supported questions make separate model calls.
 
 ## Current milestone
 
-Steps 1–5 are implemented, including a successful real Gemini call, explicit refresh,
-validated citations, expandable evidence and visible fetch/reuse/model activity.
+Steps 1–6 are implemented, including a successful real Gemini call, explicit refresh,
+validated citations, expandable evidence and backend-produced fetch/reuse/model events.

@@ -7,6 +7,7 @@ import type {
   HealthResponse,
   ResearchStateResponse,
   SourceDetails,
+  WorkflowEvent,
 } from "../shared/contracts.js";
 
 type ConnectionState = "checking" | "connected" | "unavailable";
@@ -40,21 +41,6 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-function modelActivityDetail(result: AnswerResponse): string {
-  if (!result.modelCall.occurred) {
-    return result.modelCall.reason || "The model was not called.";
-  }
-
-  const model = `${result.modelCall.provider}/${result.modelCall.model}`;
-  const duration = result.modelCall.durationMs
-    ? ` in ${result.modelCall.durationMs.toLocaleString()} ms`
-    : "";
-  const tokens = result.modelCall.totalTokens
-    ? `; ${result.modelCall.totalTokens.toLocaleString()} total tokens`
-    : "";
-  return `${model} completed${duration}; ${result.citations.length} citations validated${tokens}.`;
-}
-
 export function App() {
   const [connection, setConnection] = useState<ConnectionState>("checking");
   const [research, setResearch] = useState<ResearchStateResponse | null>(null);
@@ -82,6 +68,24 @@ export function App() {
       tone,
     };
     setActivities((current) => [entry, ...current].slice(0, 20));
+  }
+
+  function addWorkflowEvents(events: WorkflowEvent[]) {
+    const entries = events.map((event): ActivityEntry => ({
+      id: nextActivityId++,
+      occurredAt: event.occurredAt,
+      label: event.type,
+      detail: event.sourceKey ? `${event.sourceKey}: ${event.detail}` : event.detail,
+      tone:
+        event.type.endsWith("FAILED")
+          ? "error"
+          : event.type === "MODEL_CALL_SKIPPED"
+            ? "warning"
+            : event.type.endsWith("COMPLETED") || event.type === "SOURCE_PROCESSED"
+              ? "success"
+              : "info",
+    }));
+    setActivities((current) => [...entries.reverse(), ...current].slice(0, 20));
   }
 
   async function loadResearch(signal?: AbortSignal): Promise<ResearchStateResponse> {
@@ -155,12 +159,7 @@ export function App() {
       setGatherResult(result);
       setSelectedSource(null);
       await loadResearch();
-      addActivity(
-        refresh ? "Refresh completed" : "Gather completed",
-        `${result.fetched} fetched, ${result.reused} reused, ${result.failed} failed.`,
-        result.failed > 0 ? "warning" : "success",
-        result.completedAt,
-      );
+      addWorkflowEvents(result.events);
     } catch (gatherError) {
       const message =
         gatherError instanceof Error ? gatherError.message : "Research gathering failed.";
@@ -216,12 +215,7 @@ export function App() {
 
       const result = (await response.json()) as AnswerResponse;
       setAnswerResult(result);
-      addActivity(
-        result.modelCall.occurred ? "Model call completed" : "Model call skipped",
-        modelActivityDetail(result),
-        result.status === "answered" ? "success" : "warning",
-        result.modelCall.completedAt,
-      );
+      addWorkflowEvents(result.events);
     } catch (answerError) {
       const message =
         answerError instanceof Error ? answerError.message : "Question answering failed.";

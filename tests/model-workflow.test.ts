@@ -116,6 +116,11 @@ describe("grounded model workflow", () => {
     expect(provider.requests[0]?.prompt).toContain("[E1]");
     expect(provider.requests[0]?.prompt).not.toContain("DO_NOT_SEND_FULL_CORPUS_MARKER");
     expect(result.retrieval.results.length).toBeLessThanOrEqual(5);
+    expect(result.events.map((event) => event.type)).toEqual([
+      "RETRIEVAL_COMPLETED",
+      "MODEL_CALL_STARTED",
+      "MODEL_CALL_COMPLETED",
+    ]);
   });
 
   it("rejects a citation id that retrieval did not provide", async () => {
@@ -204,6 +209,36 @@ describe("grounded model workflow", () => {
     expect(result.citations).toEqual([]);
     expect(result.modelCall).toMatchObject({ occurred: false, status: "not_called" });
     expect(provider.requests).toHaveLength(0);
+    expect(result.events.map((event) => event.type)).toEqual([
+      "RETRIEVAL_COMPLETED",
+      "MODEL_CALL_SKIPPED",
+    ]);
+  });
+
+  it("answers consecutive questions from stored research and calls the model each time", async () => {
+    const repository = repositoryWithEvidence();
+    const provider = new StubModelProvider(
+      JSON.stringify({
+        answer: "The stored pricing evidence supports this answer [E1].",
+        citations: ["E1"],
+        insufficientEvidence: false,
+      }),
+    );
+
+    const first = await answerQuestion(
+      "What pricing plans does Xero offer in Australia?",
+      { repository, provider, logger: quietLogger },
+    );
+    const second = await answerQuestion(
+      "Are Xero prices in AUD and do they include GST?",
+      { repository, provider, logger: quietLogger },
+    );
+
+    expect(first.modelCall.occurred).toBe(true);
+    expect(second.modelCall.occurred).toBe(true);
+    expect(provider.requests).toHaveLength(2);
+    expect(first.events.some((event) => event.type === "MODEL_CALL_COMPLETED")).toBe(true);
+    expect(second.events.some((event) => event.type === "MODEL_CALL_COMPLETED")).toBe(true);
   });
 
   it("turns a Gemini HTTP failure into a safe provider error", async () => {

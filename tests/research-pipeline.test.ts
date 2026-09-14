@@ -158,10 +158,68 @@ describe("research processing", () => {
       expect(fetchCalls).toBe(1);
       expect(result.fetched).toBe(1);
       expect(result.reused).toBe(0);
+      expect(result.events.map((event) => event.type)).toEqual([
+        "SOURCE_FETCHED",
+        "SOURCE_PROCESSED",
+      ]);
       expect(repository.findByKey("pricing-plans")).toMatchObject({
         title: "Xero accounting software for small businesses",
         retrievedAt: "2026-09-14T03:00:00.000Z",
       });
+    } finally {
+      database.close();
+    }
+  });
+
+  it("reuses an unchanged source without fetching, extracting or chunking it", async () => {
+    const database = openResearchDatabase(":memory:");
+    const repository = new ResearchRepository(database);
+    const url = "https://www.xero.com/au/pricing-plans/";
+    repository.saveSource({
+      key: "pricing-plans",
+      url,
+      title: "Stored pricing page",
+      retrievedAt: "2026-09-13T01:00:00.000Z",
+      contentHash: "stored-hash",
+      content: "Stored pricing evidence.",
+      chunks: ["Stored pricing evidence."],
+    });
+    let fetchCalls = 0;
+    let extractCalls = 0;
+    let chunkCalls = 0;
+
+    try {
+      const result = await gatherResearch({
+        sources: [{ key: "pricing-plans", url, topic: "Australian pricing" }],
+        repository,
+        fetchHtml: async () => {
+          fetchCalls += 1;
+          return "<html></html>";
+        },
+        extract: () => {
+          extractCalls += 1;
+          return { title: "Unexpected", content: "Unexpected" };
+        },
+        chunk: () => {
+          chunkCalls += 1;
+          return ["Unexpected"];
+        },
+        now: () => new Date("2026-09-14T03:00:00.000Z"),
+        logger: { info: () => undefined, error: () => undefined },
+      });
+
+      expect({ fetchCalls, extractCalls, chunkCalls }).toEqual({
+        fetchCalls: 0,
+        extractCalls: 0,
+        chunkCalls: 0,
+      });
+      expect(result).toMatchObject({ fetched: 0, reused: 1, failed: 0 });
+      expect(result.events).toEqual([
+        expect.objectContaining({
+          type: "SOURCE_REUSED",
+          sourceKey: "pricing-plans",
+        }),
+      ]);
     } finally {
       database.close();
     }

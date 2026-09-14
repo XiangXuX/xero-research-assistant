@@ -5,6 +5,25 @@ export interface HealthResponse {
 
 export type GatherStatus = "fetched" | "reused" | "failed";
 
+export type WorkflowEventType =
+  | "SOURCE_FETCHED"
+  | "SOURCE_REUSED"
+  | "SOURCE_PROCESSED"
+  | "RETRIEVAL_COMPLETED"
+  | "MODEL_CALL_STARTED"
+  | "MODEL_CALL_COMPLETED"
+  | "MODEL_CALL_SKIPPED"
+  | "REFRESH_FAILED"
+  | "GATHER_FAILED";
+
+export interface WorkflowEvent {
+  type: WorkflowEventType;
+  occurredAt: string;
+  detail: string;
+  sourceKey?: string;
+  sourceUrl?: string;
+}
+
 export interface SourceSummary {
   id: number;
   key: string;
@@ -85,6 +104,7 @@ export interface AnswerResponse {
   insufficientEvidence: boolean;
   retrieval: RetrievalResponse;
   modelCall: ModelCallActivity;
+  events: WorkflowEvent[];
 }
 
 export interface SourceDetails extends SourceSummary {
@@ -119,6 +139,7 @@ export interface GatherResponse {
   reused: number;
   failed: number;
   results: GatherSourceResult[];
+  events: WorkflowEvent[];
 }
 
 export interface ErrorResponse {

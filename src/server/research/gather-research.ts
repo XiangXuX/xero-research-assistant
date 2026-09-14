@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import type {
   GatherResponse,
   GatherSourceResult,
+  WorkflowEvent,
 } from "../../shared/contracts.js";
 import type { ResearchRepository } from "../database/research-repository.js";
 import { chunkContent } from "./chunk-content.js";
@@ -42,6 +43,7 @@ export async function gatherResearch(
   const logger = options.logger ?? console;
   const startedAt = now().toISOString();
   const results: GatherSourceResult[] = [];
+  const events: WorkflowEvent[] = [];
   const forceRefresh = options.forceRefresh ?? false;
 
   for (const configuredSource of sources) {
@@ -65,6 +67,13 @@ export async function gatherResearch(
         message: "Reused stored research; no network request or processing occurred.",
       };
       results.push(result);
+      events.push({
+        type: "SOURCE_REUSED",
+        occurredAt: now().toISOString(),
+        sourceKey: configuredSource.key,
+        sourceUrl: configuredSource.url,
+        detail: `${existing.chunkCount} stored chunks reused; no network request or processing occurred.`,
+      });
       logger.info(`[research] reused ${configuredSource.key} (${existing.chunkCount} chunks)`);
       continue;
     }
@@ -72,6 +81,13 @@ export async function gatherResearch(
     try {
       logger.info(`[research] fetching ${configuredSource.url}`);
       const html = await fetchHtml(configuredSource.url);
+      events.push({
+        type: "SOURCE_FETCHED",
+        occurredAt: now().toISOString(),
+        sourceKey: configuredSource.key,
+        sourceUrl: configuredSource.url,
+        detail: "Public page HTML fetched successfully.",
+      });
       const extracted = extract(html, configuredSource.url);
       const chunks = chunk(extracted.content);
       const retrievedAt = now().toISOString();
@@ -97,6 +113,13 @@ export async function gatherResearch(
         chunkCount: stored.chunkCount,
         message: "Fetched, extracted, chunked, and saved successfully.",
       });
+      events.push({
+        type: "SOURCE_PROCESSED",
+        occurredAt: now().toISOString(),
+        sourceKey: configuredSource.key,
+        sourceUrl: configuredSource.url,
+        detail: `${stored.chunkCount} chunks extracted and saved atomically.`,
+      });
       logger.info(`[research] stored ${configuredSource.key} (${stored.chunkCount} chunks)`);
     } catch (error) {
       const message = errorMessage(error);
@@ -105,6 +128,13 @@ export async function gatherResearch(
         url: configuredSource.url,
         status: "failed",
         message,
+      });
+      events.push({
+        type: forceRefresh ? "REFRESH_FAILED" : "GATHER_FAILED",
+        occurredAt: now().toISOString(),
+        sourceKey: configuredSource.key,
+        sourceUrl: configuredSource.url,
+        detail: `${message} Previously stored evidence, if any, was left unchanged.`,
       });
       logger.error(`[research] failed ${configuredSource.key}: ${message}`);
     }
@@ -117,5 +147,6 @@ export async function gatherResearch(
     reused: results.filter((result) => result.status === "reused").length,
     failed: results.filter((result) => result.status === "failed").length,
     results,
+    events,
   };
 }

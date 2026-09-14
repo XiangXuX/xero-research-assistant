@@ -2,6 +2,7 @@ import type {
   AnswerCitation,
   AnswerResponse,
   ModelCallActivity,
+  WorkflowEvent,
 } from "../../shared/contracts.js";
 import type { ResearchRepository } from "../database/research-repository.js";
 import { retrieveEvidence } from "../retrieval/retrieve-evidence.js";
@@ -34,6 +35,13 @@ export async function answerQuestion(
   const now = options.now ?? (() => new Date());
   const logger = options.logger ?? console;
   const retrieval = retrieveEvidence(question, repository.listSearchableChunks());
+  const events: WorkflowEvent[] = [
+    {
+      type: "RETRIEVAL_COMPLETED",
+      occurredAt: retrieval.searchedAt,
+      detail: `${retrieval.totalChunksSearched} stored chunks searched; ${retrieval.results.length} returned; match ${retrieval.matchQuality}.`,
+    },
+  ];
 
   if (retrieval.matchQuality !== "strong") {
     const modelCall: ModelCallActivity = {
@@ -42,6 +50,11 @@ export async function answerQuestion(
       reason: `Retrieval match was ${retrieval.matchQuality}; the model call was skipped to avoid an unsupported answer.`,
     };
     logger.info(`[model] skipped: ${modelCall.reason}`);
+    events.push({
+      type: "MODEL_CALL_SKIPPED",
+      occurredAt: now().toISOString(),
+      detail: modelCall.reason ?? "The model call was skipped.",
+    });
 
     return {
       question: retrieval.question,
@@ -53,6 +66,7 @@ export async function answerQuestion(
       insufficientEvidence: true,
       retrieval,
       modelCall,
+      events,
     };
   }
 
@@ -62,6 +76,11 @@ export async function answerQuestion(
   logger.info(
     `[model] calling ${provider.provider}/${provider.model} with ${retrieval.results.length} evidence chunks`,
   );
+  events.push({
+    type: "MODEL_CALL_STARTED",
+    occurredAt: startedAt,
+    detail: `${provider.provider}/${provider.model} called with ${retrieval.results.length} retrieved evidence chunks.`,
+  });
 
   try {
     const completion = await provider.complete({
@@ -91,6 +110,11 @@ export async function answerQuestion(
     logger.info(
       `[model] completed ${completion.provider}/${completion.model}; ${citations.length} citations validated`,
     );
+    events.push({
+      type: "MODEL_CALL_COMPLETED",
+      occurredAt: completedAt,
+      detail: `${completion.provider}/${completion.model} completed in ${durationBetween(startedAt, completedAt)} ms; ${citations.length} citations validated${completion.usage?.totalTokens ? `; ${completion.usage.totalTokens} total tokens` : ""}.`,
+    });
 
     return {
       question: retrieval.question,
@@ -112,6 +136,7 @@ export async function answerQuestion(
         outputTokens: completion.usage?.outputTokens,
         totalTokens: completion.usage?.totalTokens,
       },
+      events,
     };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown model workflow error";
