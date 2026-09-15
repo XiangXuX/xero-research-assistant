@@ -13,6 +13,7 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "evaluation:live": "node --import tsx src/server/cli/evaluate.ts",
     "research:gather": "node --import tsx src/server/cli/gather.ts",
     "research:refresh": "node --import tsx src/server/cli/gather.ts --refresh",
     "research:inspect": "node --import tsx src/server/cli/inspect.ts",

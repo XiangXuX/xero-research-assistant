@@ -1,0 +1,60 @@
+{
+  "step": 8,
+  "mode": "offline credential-free automated verification",
+  "verifiedAt": "2026-09-15T10:51:41.000Z",
+  "commands": [
+    "npm test -- --reporter=verbose",
+    "npm run typecheck",
+    "npm run build"
+  ],
+  "result": {
+    "testFilesPassed": 5,
+    "testsPassed": 21,
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "requiredCoverage": [
+    {
+      "case": "reuse",
+      "proof": "An unchanged gather performs zero fetch, extraction and chunking calls; consecutive supported questions read stored chunks and make separate model calls."
+    },
+    {
+      "case": "insufficient evidence",
+      "proof": "An unrelated Mars-weather question returns insufficient_evidence with no model call and no accepted citation."
+    },
+    {
+      "case": "failed refresh retains old data",
+      "proof": "A synthetic HTTP 503 leaves stored content, chunks, hash and retrievedAt unchanged and queryable."
+    },
+    {
+      "case": "invalid citation rejected",
+      "proof": "Unknown evidence IDs and disagreement between inline markers and the citation array are rejected."
+    },
+    {
+      "case": "correct source retrieval",
+      "proof": "BM25 ranks the expected pricing and small-business sources first and returns traceable Top K metadata."
+    }
+  ],
+  "externalBoundariesReplaced": [
+    "HTTP fetch to Xero is replaced by local HTML fixtures or injected fetch functions.",
+    "Gemini is replaced by an injected deterministic ModelProvider stub."
+  ],
+  "realApplicationLogicExercised": [
+    "HTML extraction and chunking",
+    "SQLite repository persistence and transaction behaviour",
+    "BM25 retrieval and evidence labelling",
+    "grounded answer workflow and citation validation",
+    "reuse, refresh, failure protection and workflow events"
+  ],
+  "liveEvaluation": {
+    "command": "npm run evaluation:live",
+    "output": "evaluation/real-model-run.json",
+    "status": "requires a locally configured GEMINI_API_KEY and stored research",
+    "cases": [
+      "Supported",
+      "Multi-source",
+      "Insufficient evidence",
+      "Repeated/follow-up"
+    ]
+  }
+}

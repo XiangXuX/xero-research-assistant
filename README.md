@@ -111,8 +111,11 @@ npm run build
 The credential-free tests cover HTML noise removal, bounded chunk creation, database
 persistence after reopening, configuration-driven source replacement, retrieval
 ranking, Top K limits, traceable citations, invalid model JSON/IDs, weak-evidence
-short-circuiting and provider HTTP failure. Tests use injected fakes and do not access
-Xero or a model. Compact run records are in `evaluation/`, including the
+short-circuiting and provider HTTP failure. Tests use local HTML fixtures, in-memory
+SQLite, injected fetch functions and a stub model provider; they do not access Xero or
+Gemini. The real extraction, chunking, repository, retrieval, answer validation and
+workflow-event code still runs. Only the two external boundaries are replaced, so this
+is not a mock-only application. Compact run records are in `evaluation/`, including the
 [successful real-model run](evaluation/step-4-live.json) and the
 [credential-free Step 6 verification](evaluation/step-6-offline.json).
 
@@ -148,8 +151,47 @@ not request headers or API keys, and a failed refresh cannot create an answer. T
 credential-free result is recorded in
 [`evaluation/step-7-offline.json`](evaluation/step-7-offline.json).
 
+## Evaluation
+
+Step 8 separates deterministic automated testing from model-quality evaluation.
+Unit tests check focused rules such as chunk bounds, BM25 ranking and citation
+validation. Integration tests connect real internal components through in-memory
+SQLite, for example fetch → extraction → chunking → persistence and retrieval →
+model proposal → citation validation. Mock fetch and the stub model replace only
+network boundaries, keeping the suite repeatable, credential-free and free of Xero or
+Gemini cost.
+
+Run the complete offline gate with:
+
+```bash
+npm test
+npm run typecheck
+npm run build
+```
+
+The current gate contains 21 tests across five files. It includes reuse, insufficient
+evidence, failed-refresh preservation, invalid-citation rejection and correct-source
+retrieval. The verified offline record is
+[`evaluation/step-8-offline.json`](evaluation/step-8-offline.json).
+
+After gathering real research and configuring `GEMINI_API_KEY`, run the four-case live
+evaluation once:
+
+```bash
+npm run evaluation:live
+```
+
+This executes Supported, Multi-source, Insufficient evidence and Repeated/follow-up
+cases through the real answer workflow and writes
+`evaluation/real-model-run.json`. It records questions, expected behaviour, cited
+evidence excerpts, actual outputs, assessments, model/configuration metadata, run
+date and source retrieval dates. No secret value is recorded. The command fails if a
+case does not meet its explicit checks; a human should additionally confirm that each
+claim is actually entailed by its cited passage rather than merely sharing keywords.
+
 ## Current milestone
 
-Steps 1–7 are implemented, including a successful real Gemini call, explicit refresh,
-validated citations, expandable evidence, backend-produced activity events and a safe,
-repeatable HTTP 503 refresh-failure demonstration.
+Steps 1–8 are implemented, including a successful real Gemini call, explicit refresh,
+validated citations, expandable evidence, backend-produced activity events, a safe
+repeatable HTTP 503 refresh-failure demonstration, 21 automated tests and a repeatable
+four-case real-model evaluation runner.
