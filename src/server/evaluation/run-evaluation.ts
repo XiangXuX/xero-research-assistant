@@ -41,7 +41,7 @@ const evaluationCases: EvaluationCaseDefinition[] = [
   },
   {
     id: "repeated-follow-up",
-    question: "What are Xero's pricing plans in Australia?",
+    question: "As a follow-up, does Australian Xero pricing include GST?",
     expectedBehaviour:
       "Answer from the already stored research, make a new model call, and perform no gather or refresh.",
   },
@@ -53,7 +53,7 @@ export interface EvaluationEvidence {
   sourceTitle: string;
   sourceUrl: string;
   retrievedAt: string;
-  supportingTextExcerpt: string;
+  supportingText: string;
 }
 
 export interface EvaluationCaseResult {
@@ -125,8 +125,8 @@ function sourceDates(sources: SourceSummary[]) {
   }));
 }
 
-function evidenceExcerpt(content: string): string {
-  return content.replace(/\s+/gu, " ").trim().slice(0, 280);
+function normaliseEvidence(content: string): string {
+  return content.replace(/\s+/gu, " ").trim();
 }
 
 function assessCase(
@@ -222,7 +222,7 @@ export async function runEvaluation(
         sourceTitle: citation.sourceTitle,
         sourceUrl: citation.sourceUrl,
         retrievedAt: citation.retrievedAt,
-        supportingTextExcerpt: evidenceExcerpt(citation.supportingText),
+        supportingText: normaliseEvidence(citation.supportingText),
       })),
       actualOutput: {
         status: result.status,

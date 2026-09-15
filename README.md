@@ -183,8 +183,8 @@ npm run evaluation:live
 
 This executes Supported, Multi-source, Insufficient evidence and Repeated/follow-up
 cases through the real answer workflow and writes
-`evaluation/real-model-run.json`. It records questions, expected behaviour, cited
-evidence excerpts, actual outputs, assessments, model/configuration metadata, run
+`evaluation/real-model-run.json`. It records questions, expected behaviour, complete
+cited evidence text, actual outputs, assessments, model/configuration metadata, run
 date and source retrieval dates. No secret value is recorded. The command fails if a
 case does not meet its explicit checks; a human should additionally confirm that each
 claim is actually entailed by its cited passage rather than merely sharing keywords.
