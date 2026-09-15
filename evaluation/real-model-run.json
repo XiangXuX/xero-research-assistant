@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "mode": "real-model",
+  "runDate": "2026-09-15T01:20:21.022Z",
+  "model": {
+    "provider": "gemini",
+    "name": "gemini-3.1-flash-lite"
+  },
+  "modelConfiguration": {
+    "credentialEnvironmentVariable": "GEMINI_API_KEY",
+    "structuredJson": true,
+    "providerStorageRequested": false,
+    "retrievedEvidenceLimit": 5
+  },
+  "sourceRetrievalDates": [
+    {
+      "key": "accounting-software",
+      "title": "Accounting Software for Australian Small Businesses | Xero AU",
+      "url": "https://www.xero.com/au/accounting-software/",
+      "retrievedAt": "2026-09-15T00:37:10.771Z"
+    },
+    {
+      "key": "pricing-plans",
+      "title": "Pricing Plans | Xero AU",
+      "url": "https://www.xero.com/au/pricing-plans/",
+      "retrievedAt": "2026-09-15T00:37:11.011Z"
+    },
+    {
+      "key": "small-businesses",
+      "title": "Why Choose Xero for Your Small Business | Xero AU",
+      "url": "https://www.xero.com/au/small-businesses/",
+      "retrievedAt": "2026-09-15T00:37:11.428Z"
+    },
+    {
+      "key": "accounting-partners",
+      "title": "Accounting Practice Management Software | Xero AU",
+      "url": "https://www.xero.com/au/accountants-bookkeepers/",
+      "retrievedAt": "2026-09-15T00:37:11.574Z"
+    }
+  ],
+  "cases": [
+    {
+      "case": "supported",
+      "question": "Are Xero prices in Australia stated in AUD and do they include GST?",
+      "expectedBehaviour": "Answer from the Australian pricing source with at least one validated citation.",
+      "relevantEvidence": [
+        {
+          "evidenceId": "E1",
+          "chunkId": 84,
+          "sourceTitle": "Pricing Plans | Xero AU",
+          "sourceUrl": "https://www.xero.com/au/pricing-plans/",
+          "retrievedAt": "2026-09-15T00:37:11.011Z",
+          "supportingTextExcerpt": "Track time and costs for projects For 10 users$7 per additional user $7 per additional user NewBenchmark against the industry New Pricing plan details and offer terms Prices are in AUD and include GST. Xero reserves the right to change pricing at any time. Xero subscriptions auto"
+        }
+      ],
+      "actualOutput": {
+        "status": "answered",
+        "answer": "Yes, Xero prices for Australia are stated in AUD and include GST [E1].",
+        "insufficientEvidence": false,
+        "citationIds": [
+          "E1"
+        ],
+        "citedSourceCount": 1,
+        "retrievalMatch": "strong",
+        "retrievedChunkCount": 5,
+        "modelCall": {
+          "occurred": true,
+          "status": "succeeded",
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-lite",
+          "startedAt": "2026-09-15T01:20:10.119Z",
+          "completedAt": "2026-09-15T01:20:12.992Z",
+          "durationMs": 2873,
+          "inputTokens": 1596,
+          "outputTokens": 51,
+          "totalTokens": 1647
+        }
+      },
+      "assessment": {
+        "passed": true,
+        "checks": [
+          "status answered",
+          "validated citation present",
+          "one source supports the answer"
+        ]
+      }
+    },
+    {
+      "case": "multi-source",
+      "question": "How does Xero support both small businesses and accountants or bookkeepers in Australia?",
+      "expectedBehaviour": "Integrate evidence from at least two distinct stored source URLs and cite both.",
+      "relevantEvidence": [
+        {
+          "evidenceId": "E1",
+          "chunkId": 98,
+          "sourceTitle": "Accounting Practice Management Software | Xero AU",
+          "sourceUrl": "https://www.xero.com/au/accountants-bookkeepers/",
+          "retrievedAt": "2026-09-15T00:37:11.574Z",
+          "supportingTextExcerpt": "Xero removes your headache of dealing with paperwork and it will help you focus on your business. To help manage her practice and serve her small business customers, Nury Saenz turns to Xero's features and automated workflow. Free accounting software, training and support Xero pa"
+        },
+        {
+          "evidenceId": "E2",
+          "chunkId": 89,
+          "sourceTitle": "Why Choose Xero for Your Small Business | Xero AU",
+          "sourceUrl": "https://www.xero.com/au/small-businesses/",
+          "retrievedAt": "2026-09-15T00:37:11.428Z",
+          "supportingTextExcerpt": "Advertising Claim expenses, set up bank feeds, and collaborate with your accountant or bookkeeper online. Agriculture Track inventory, set up bank feeds, and collaborate with your accountant or bookkeeper online. Architects Auto repair Set up bank feeds, claim expenses, and colla"
+        },
+        {
+          "evidenceId": "E3",
+          "chunkId": 99,
+          "sourceTitle": "Accounting Practice Management Software | Xero AU",
+          "sourceUrl": "https://www.xero.com/au/accountants-bookkeepers/",
+          "retrievedAt": "2026-09-15T00:37:11.574Z",
+          "supportingTextExcerpt": "Earn discounts Become eligible for discounts on client subscriptions, and choose whether to pass them on. Join the partner program Access free accounting software, resources, and other benefits. Collaborate with colleagues, support clients & simplify practice management. Sign up "
+        },
+        {
+          "evidenceId": "E4",
+          "chunkId": 97,
+          "sourceTitle": "Accounting Practice Management Software | Xero AU",
+          "sourceUrl": "https://www.xero.com/au/accountants-bookkeepers/",
+          "retrievedAt": "2026-09-15T00:37:11.574Z",
+          "supportingTextExcerpt": "Plans for small clients Use simpler versions of Xero’s accounting software for small businesses clients whose needs are more limited. Centralised working and practice management Xero’s practice software and data work seamlessly together to create an integrated accounting practice"
+        },
+        {
+          "evidenceId": "E5",
+          "chunkId": 90,
+          "sourceTitle": "Why Choose Xero for Your Small Business | Xero AU",
+          "sourceUrl": "https://www.xero.com/au/small-businesses/",
+          "retrievedAt": "2026-09-15T00:37:11.428Z",
+          "supportingTextExcerpt": "Education Automate admin, claim expenses, and collaborate with your accountant or bookkeeper online. Engineering Claim expense, set up bank feeds, and benefit from a user-friendly design Farming Automate everyday tasks, track everything in one place, and send invoices online. Fre"
+        }
+      ],
+      "actualOutput": {
+        "status": "answered",
+        "answer": "In Australia, Xero supports small businesses by offering tools to automate administrative tasks, manage invoices and quotes, track expenses, connect to bank feeds, and monitor cash flow [E2, E5]. Small businesses can use the mobile app to handle accounting on the go and collaborate online with their accountants or bookkeepers [E2, E4, E5]. For accountants and bookkeepers, Xero provides an integrated practice management solution through the Xero Partner Hub, which allows them to manage clients, staff, and workflows [E4]. The Xero partner program offers professionals free access to accounting software to run their practices, as well as resources for training, marketing support, and the ability to earn discounts on client subscriptions [E1, E3, E4].",
+        "insufficientEvidence": false,
+        "citationIds": [
+          "E1",
+          "E2",
+          "E3",
+          "E4",
+          "E5"
+        ],
+        "citedSourceCount": 2,
+        "retrievalMatch": "strong",
+        "retrievedChunkCount": 5,
+        "modelCall": {
+          "occurred": true,
+          "status": "succeeded",
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-lite",
+          "startedAt": "2026-09-15T01:20:12.999Z",
+          "completedAt": "2026-09-15T01:20:17.926Z",
+          "durationMs": 4927,
+          "inputTokens": 1628,
+          "outputTokens": 211,
+          "totalTokens": 1839
+        }
+      },
+      "assessment": {
+        "passed": true,
+        "checks": [
+          "status answered",
+          "2 distinct sources cited"
+        ]
+      }
+    },
+    {
+      "case": "insufficient-evidence",
+      "question": "Does Xero provide weather forecasts for Mars?",
+      "expectedBehaviour": "Return insufficient evidence without calling the model or accepting citations.",
+      "relevantEvidence": [],
+      "actualOutput": {
+        "status": "insufficient_evidence",
+        "answer": "The stored research does not provide enough relevant evidence to answer this question reliably.",
+        "insufficientEvidence": true,
+        "citationIds": [],
+        "citedSourceCount": 0,
+        "retrievalMatch": "weak",
+        "retrievedChunkCount": 5,
+        "modelCall": {
+          "occurred": false,
+          "status": "not_called",
+          "reason": "Retrieval match was weak; the model call was skipped to avoid an unsupported answer."
+        }
+      },
+      "assessment": {
+        "passed": true,
+        "checks": [
+          "insufficient evidence returned",
+          "model call skipped",
+          "no citations accepted"
+        ]
+      }
+    },
+    {
+      "case": "repeated-follow-up",
+      "question": "What are Xero's pricing plans in Australia?",
+      "expectedBehaviour": "Answer from the already stored research, make a new model call, and perform no gather or refresh.",
+      "relevantEvidence": [
+        {
+          "evidenceId": "E1",
+          "chunkId": 84,
+          "sourceTitle": "Pricing Plans | Xero AU",
+          "sourceUrl": "https://www.xero.com/au/pricing-plans/",
+          "retrievedAt": "2026-09-15T00:37:11.011Z",
+          "supportingTextExcerpt": "Track time and costs for projects For 10 users$7 per additional user $7 per additional user NewBenchmark against the industry New Pricing plan details and offer terms Prices are in AUD and include GST. Xero reserves the right to change pricing at any time. Xero subscriptions auto"
+        },
+        {
+          "evidenceId": "E2",
+          "chunkId": 86,
+          "sourceTitle": "Pricing Plans | Xero AU",
+          "sourceUrl": "https://www.xero.com/au/pricing-plans/",
+          "retrievedAt": "2026-09-15T00:37:11.011Z",
+          "supportingTextExcerpt": "†† Any payment fees are in addition to your Xero monthly base subscription amount and are not eligible for subscription discounts or offers. See here for more information. See our terms of use for details Hubdoc terms of use Picking a plan shouldn't need a plan. Tell us a little "
+        },
+        {
+          "evidenceId": "E4",
+          "chunkId": 80,
+          "sourceTitle": "Pricing Plans | Xero AU",
+          "sourceUrl": "https://www.xero.com/au/pricing-plans/",
+          "retrievedAt": "2026-09-15T00:37:11.011Z",
+          "supportingTextExcerpt": "Reconcile bank transactions Track GST and lodge BAS Smart document capture View real-time reports Automate superannuation Payroll for 10 people 180 day cashflow forecast Visualise performance with graphs Customise performance dashboards Claim expenses and mileage for 10 users Use"
+        },
+        {
+          "evidenceId": "E5",
+          "chunkId": 83,
+          "sourceTitle": "Pricing Plans | Xero AU",
+          "sourceUrl": "https://www.xero.com/au/pricing-plans/",
+          "retrievedAt": "2026-09-15T00:37:11.011Z",
+          "supportingTextExcerpt": "Everything in Comprehensive, plus: Payroll for 10 people180 day cashflow forecastClaim expenses and mileage for 10 usersAnalyse KPIs and ratiosTrack projects for 10 usersBenchmark against the industry Compare features across plans Forecast with clarityForecast with clarity GrowBu"
+        }
+      ],
+      "actualOutput": {
+        "status": "answered",
+        "answer": "Xero offers several pricing plans in Australia to accommodate different business needs, including 'Grow', 'Comprehensive', and 'Ultimate 10' [E5]. While the provided documents mention a 'Comprehensive' plan is priced at $107 per month [E4], the complete list of monthly prices for all plans is not explicitly detailed in the provided evidence. All prices are in AUD and include GST [E1]. Customers are eligible for their first month free when purchasing a Xero plan [E2].",
+        "insufficientEvidence": false,
+        "citationIds": [
+          "E1",
+          "E2",
+          "E4",
+          "E5"
+        ],
+        "citedSourceCount": 1,
+        "retrievalMatch": "strong",
+        "retrievedChunkCount": 5,
+        "modelCall": {
+          "occurred": true,
+          "status": "succeeded",
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-lite",
+          "startedAt": "2026-09-15T01:20:17.938Z",
+          "completedAt": "2026-09-15T01:20:21.020Z",
+          "durationMs": 3082,
+          "inputTokens": 1556,
+          "outputTokens": 154,
+          "totalTokens": 1710
+        }
+      },
+      "assessment": {
+        "passed": true,
+        "checks": [
+          "follow-up answered",
+          "new model call observed",
+          "validated citation present",
+          "stored source retrieval dates unchanged"
+        ]
+      }
+    }
+  ],
+  "reuseVerification": {
+    "gatherWorkflowInvoked": false,
+    "sourceRetrievalDatesUnchanged": true,
+    "storedSourceCountBefore": 4,
+    "storedSourceCountAfter": 4
+  },
+  "modelCallsObserved": 3,
+  "allCasesPassed": true
+}
