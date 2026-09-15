@@ -5,6 +5,7 @@ import type {
   ErrorResponse,
   GatherResponse,
   HealthResponse,
+  RefreshFailureDemoResponse,
   ResearchStateResponse,
   SourceDetails,
   WorkflowEvent,
@@ -48,10 +49,12 @@ export function App() {
   const [researchAction, setResearchAction] = useState<ResearchAction>("gather");
   const [question, setQuestion] = useState("");
   const [answerResult, setAnswerResult] = useState<AnswerResponse | null>(null);
+  const [failureDemo, setFailureDemo] = useState<RefreshFailureDemoResponse | null>(null);
   const [selectedSource, setSelectedSource] = useState<SourceDetails | null>(null);
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
   const [isGathering, setIsGathering] = useState(false);
   const [isAnswering, setIsAnswering] = useState(false);
+  const [isDemonstratingFailure, setIsDemonstratingFailure] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function addActivity(
@@ -188,6 +191,37 @@ export function App() {
       const message = sourceError instanceof Error ? sourceError.message : "Could not load the source.";
       setError(message);
       addActivity("Source view failed", message, "error");
+    }
+  }
+
+  async function runRefreshFailureDemo() {
+    setIsDemonstratingFailure(true);
+    setFailureDemo(null);
+    setError(null);
+    addActivity(
+      "Failure demonstration started",
+      "Simulating an HTTP 503 refresh against one stored source without a live network request.",
+      "info",
+    );
+
+    try {
+      const response = await fetch("/api/research/demo/refresh-failure", {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw await responseError(response);
+      }
+
+      const result = (await response.json()) as RefreshFailureDemoResponse;
+      setFailureDemo(result);
+      addWorkflowEvents(result.events);
+    } catch (demoError) {
+      const message =
+        demoError instanceof Error ? demoError.message : "Failure demonstration failed.";
+      setError(message);
+      addActivity("Failure demonstration unavailable", message, "error");
+    } finally {
+      setIsDemonstratingFailure(false);
     }
   }
 
@@ -481,8 +515,52 @@ export function App() {
           <div>
             <p className="section-kicker">Activity log</p>
             <h2 id="activity-heading">Fetch, reuse and model activity</h2>
+            <p>
+              Run the synthetic HTTP 503 demonstration to verify that a failed refresh
+              remains visible while last-known-good evidence stays queryable.
+            </p>
           </div>
+          <button
+            className="button-danger"
+            type="button"
+            onClick={() => void runRefreshFailureDemo()}
+            disabled={isDemonstratingFailure || storedCount === 0}
+          >
+            {isDemonstratingFailure ? "Simulating failure..." : "Demonstrate safe failure"}
+          </button>
         </div>
+
+        {failureDemo ? (
+          <article className="failure-demo" aria-live="polite">
+            <div className="failure-demo__heading">
+              <span>Expected failure handled safely</span>
+              <strong>HTTP 503</strong>
+            </div>
+            <p><strong>{failureDemo.source.key}</strong>: {failureDemo.failureMessage}</p>
+            <p className="failure-demo__note">
+              This is a synthetic response. No live network request was made and the
+              normal research database was not modified.
+            </p>
+            <dl className="failure-demo__times">
+              <div>
+                <dt>Last attempted refresh</dt>
+                <dd>{formatDate(failureDemo.lastAttemptedAt)}</dd>
+              </div>
+              <div>
+                <dt>Last successful retrieval</dt>
+                <dd>{formatDate(failureDemo.lastSuccessfullyRetrievedAt)}</dd>
+              </div>
+            </dl>
+            <ul className="failure-checks">
+              <li><strong>Old evidence retained</strong><span>{failureDemo.checks.oldEvidenceRetained ? "Yes" : "No"}</span></li>
+              <li><strong>Old evidence still queryable</strong><span>{failureDemo.checks.oldEvidenceQueryable ? "Yes" : "No"}</span></li>
+              <li><strong>Retrieved time unchanged</strong><span>{failureDemo.checks.retrievedAtUnchanged ? "Yes" : "No"}</span></li>
+              <li><strong>Content hash unchanged</strong><span>{failureDemo.checks.contentHashUnchanged ? "Yes" : "No"}</span></li>
+              <li><strong>Credential exposed</strong><span>{failureDemo.checks.credentialExposed ? "Yes" : "No"}</span></li>
+              <li><strong>Answer generated</strong><span>{failureDemo.checks.answerGenerated ? "Yes" : "No"}</span></li>
+            </ul>
+          </article>
+        ) : null}
 
         {gatherResult ? (
           <div className="activity activity--latest" aria-live="polite">

@@ -142,6 +142,30 @@ export interface GatherResponse {
   events: WorkflowEvent[];
 }
 
+export interface RefreshFailureDemoResponse {
+  status: "failed_safely";
+  scenario: "synthetic_http_503";
+  source: {
+    key: string;
+    title: string;
+    url: string;
+  };
+  failureMessage: string;
+  lastAttemptedAt: string;
+  lastSuccessfullyRetrievedAt: string;
+  liveNetworkRequestMade: false;
+  checks: {
+    oldEvidenceRetained: boolean;
+    oldEvidenceQueryable: boolean;
+    retrievedAtUnchanged: boolean;
+    contentHashUnchanged: boolean;
+    chunkCountUnchanged: boolean;
+    credentialExposed: false;
+    answerGenerated: false;
+  };
+  events: WorkflowEvent[];
+}
+
 export interface ErrorResponse {
   error: string;
   code?: string;

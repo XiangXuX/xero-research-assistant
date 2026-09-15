@@ -132,7 +132,24 @@ refresh and repeated-question runs without reading source code. Tests also asser
 an unchanged Gather makes zero fetch, extraction and chunking calls, while consecutive
 supported questions make separate model calls.
 
+## Failure handling
+
+The Activity Log includes a **Demonstrate safe failure** action. It runs the production
+refresh workflow for one stored source with an injected synthetic HTTP 503 response.
+No live request or model call occurs. The result visibly separates the latest attempted
+refresh time from the last successful retrieval time and confirms that the old URL,
+content hash, chunks and `retrievedAt` remain unchanged and queryable.
+
+Real refreshes follow the same ordering: fetch, extract and chunk first; only then call
+`saveSource`. Source and chunk replacement occurs in one SQLite transaction, with a
+rollback on persistence failure. We therefore never delete last-known-good evidence
+before a replacement is ready. Provider errors expose a controlled status and message,
+not request headers or API keys, and a failed refresh cannot create an answer. The
+credential-free result is recorded in
+[`evaluation/step-7-offline.json`](evaluation/step-7-offline.json).
+
 ## Current milestone
 
-Steps 1–6 are implemented, including a successful real Gemini call, explicit refresh,
-validated citations, expandable evidence and backend-produced fetch/reuse/model events.
+Steps 1–7 are implemented, including a successful real Gemini call, explicit refresh,
+validated citations, expandable evidence, backend-produced activity events and a safe,
+repeatable HTTP 503 refresh-failure demonstration.

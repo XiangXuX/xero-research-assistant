@@ -1,0 +1,36 @@
+{
+  "step": 7,
+  "mode": "offline credential-free failure demonstration",
+  "verifiedAt": "2026-09-15T00:20:20.714Z",
+  "scenario": {
+    "type": "synthetic_http_503",
+    "liveNetworkRequestMade": false,
+    "modelCallMade": false,
+    "productionResearchMutationRequested": false
+  },
+  "observedResult": {
+    "status": "failed_safely",
+    "visibleEvent": "REFRESH_FAILED",
+    "failureMessage": "Synthetic page returned HTTP 503 Service Unavailable",
+    "oldEvidenceRetained": true,
+    "oldEvidenceQueryable": true,
+    "retrievedAtUnchanged": true,
+    "contentHashUnchanged": true,
+    "chunkCountUnchanged": true,
+    "credentialExposed": false,
+    "answerGenerated": false
+  },
+  "automatedVerification": {
+    "testFilesPassed": 4,
+    "testsPassed": 20,
+    "typecheck": "passed",
+    "productionBuild": "passed"
+  },
+  "explanation": [
+    "The demonstration runs the production gatherResearch workflow against an already stored source.",
+    "Its fetch dependency is replaced with a deterministic HTTP 503 error, so no live request occurs.",
+    "Fetching and processing happen before ResearchRepository.saveSource is called.",
+    "saveSource replaces a source and its chunks inside one SQLite transaction and rolls back on error.",
+    "The displayed last attempted time is separate from the unchanged last successful retrieval time."
+  ]
+}

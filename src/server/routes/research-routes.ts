@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import type {
   ErrorResponse,
+  RefreshFailureDemoResponse,
   ResearchStateResponse,
   SourceDetails,
 } from "../../shared/contracts.js";
@@ -14,6 +15,10 @@ import {
   ModelProviderError,
 } from "../model/model-provider.js";
 import { gatherResearch } from "../research/gather-research.js";
+import {
+  demonstrateRefreshFailure,
+  FailureDemoUnavailableError,
+} from "../research/demonstrate-refresh-failure.js";
 import { configuredSources } from "../research/sources.js";
 import { retrieveEvidence } from "../retrieval/retrieve-evidence.js";
 
@@ -40,6 +45,24 @@ researchRouter.post("/gather", async (request, response, next) => {
   try {
     response.json(await gatherResearch({ forceRefresh: request.body?.refresh === true }));
   } catch (error) {
+    next(error);
+  }
+});
+
+researchRouter.post("/demo/refresh-failure", async (_request, response, next) => {
+  try {
+    const body: RefreshFailureDemoResponse = await demonstrateRefreshFailure();
+    response.json(body);
+  } catch (error) {
+    if (error instanceof FailureDemoUnavailableError) {
+      const body: ErrorResponse = {
+        error: error.message,
+        code: "FAILURE_DEMO_REQUIRES_RESEARCH",
+      };
+      response.status(409).json(body);
+      return;
+    }
+
     next(error);
   }
 });
