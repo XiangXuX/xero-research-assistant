@@ -1,197 +1,273 @@
 # Xero Research Assistant
 
-A small TypeScript web application that gathers public Xero research, retains the
-extracted evidence, and will answer questions using traceable supporting passages.
+[中文说明](README.zh-CN.md)
 
-## Requirements and setup
+A local-first TypeScript research application that gathers selected public Xero Australia pages, stores traceable evidence, retrieves relevant passages, and asks Gemini to draft answers that the backend validates against those passages.
 
-- Node.js 22.13 or newer (the project uses Node's built-in SQLite module)
-- npm
+The reviewer can use one web page to inspect sources and retrieval times, gather or refresh research, ask questions, expand supporting evidence, open source URLs, and inspect workflow or failure events.
+
+## What the application does
+
+- Gathers four configured public Xero Australia pages.
+- Removes common HTML noise, splits useful text into bounded chunks, and stores sources and chunks in SQLite.
+- Reuses stored research during normal Gather operations and never fetches pages while answering a question.
+- Ranks stored chunks with lexical BM25 and returns the Top 5 candidates.
+- Calls Gemini only when retrieval has sufficient query coverage.
+- Rejects malformed answers, unknown evidence IDs, and citation-list/inline-marker mismatches.
+- Preserves last-known-good evidence when a refresh fails.
+- Exposes source, retrieval, model, reuse, refresh, and failure activity in the UI.
+
+## Fresh-clone setup
+
+### Requirements
+
+- Node.js 22.13 or newer; the project uses Node's built-in `node:sqlite` module.
+- npm, included with Node.js.
+- A Gemini API key only for supported model-backed answers and live evaluation. Gathering, inspection, retrieval, the safe-failure demonstration, type checking, building, and offline tests do not require a key.
+
+### Install and configure
 
 ```bash
+git clone https://github.com/XiangXuX/xero-research-assistant.git
+cd xero-research-assistant
 npm install
+```
+
+Create the local environment file:
+
+```powershell
+# Windows PowerShell
+Copy-Item .env.example .env
+```
+
+```bash
+# macOS or Linux
 cp .env.example .env
+```
+
+Add a Gemini API key to `.env` if model-backed answers are required:
+
+```dotenv
+GEMINI_API_KEY=your_key_here
+```
+
+Create a key in [Google AI Studio](https://aistudio.google.com/app/apikey). A ChatGPT subscription does not provide this credential. `.env` is excluded from Git; `.env.example` is committed as a safe template.
+
+## Environment variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PORT` | `3001` | Express API port. |
+| `RESEARCH_DB_PATH` | `data/research.db` | Local SQLite database file. |
+| `FETCH_TIMEOUT_MS` | `45000` | Timeout for each page request. |
+| `MODEL_PROVIDER` | `gemini` | Runtime provider selection; only Gemini is implemented. |
+| `MODEL_NAME` | `gemini-3.1-flash-lite` | Gemini model sent to the provider API. |
+| `MODEL_TIMEOUT_MS` | `30000` | Timeout for each model request. |
+| `GEMINI_API_KEY` | empty | Secret used only by Express when Gemini is called. |
+
+## Run the live application
+
+```bash
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite proxies `/api` requests to the Express API at
-`http://localhost:3001`.
+Open [http://localhost:5173](http://localhost:5173). Vite serves the React client on port 5173 and proxies `/api` to Express on [http://localhost:3001](http://localhost:3001). The API does not serve a page at `/`, so opening port 3001 directly may show `Cannot GET /`; that is expected. Stop both processes with `Ctrl+C` in the terminal running `npm run dev`.
 
-## Gather and inspect research
+### Gather, refresh, inspect, and ask
 
-Use the **Gather research** button in the web application, or run:
+| Operation | Web UI | CLI | External activity |
+| --- | --- | --- | --- |
+| Gather or reuse | **Gather research** | `npm run research:gather` | Fetches and processes only an incomplete or missing configured source; otherwise reuses SQLite. |
+| Force refresh | **Refresh all** | `npm run research:refresh` | Fetches and reprocesses every configured Xero page. |
+| Inspect storage | **View stored chunks** | `npm run research:inspect` | Reads SQLite only. |
+| Inspect retrieval | Supporting Evidence | `npm run research:retrieve -- "What pricing plans does Xero offer in Australia?"` | Reads SQLite only; no Xero or Gemini request. |
+| Ask with evidence | **Ask with evidence** | `npm run research:ask -- "What pricing plans does Xero offer in Australia?"` | Reads SQLite; calls Gemini only for strong retrieval; never fetches Xero. |
 
-```bash
-npm run research:gather
-npm run research:refresh
-npm run research:inspect
+Sources are defined in `src/server/research/sources.ts`. Normal Gather reports `SOURCE_REUSED` when a complete record exists. Explicit Refresh updates `retrievedAt` only after a successful replacement.
+
+## Architecture and data flow
+
+```mermaid
+flowchart TD
+    UI["React + Vite client"]
+    API["Express API"]
+    GATHER["Gather pipeline"]
+    ANSWER["Answer workflow"]
+    DB["SQLite sources + chunks"]
+    WEB["Public Xero pages"]
+    MODEL["Gemini API"]
+
+    UI -->|"HTTP + JSON"| API
+    API --> GATHER
+    API --> ANSWER
+    GATHER -->|"fetch HTML"| WEB
+    GATHER -->|"atomic save"| DB
+    ANSWER -->|"read + BM25"| DB
+    ANSWER -->|"strong evidence only"| MODEL
+    API -->|"result + evidence + events"| UI
 ```
 
-The first command fetches missing pages and later reuses unchanged stored research.
-The refresh command explicitly fetches and reprocesses every configured source. The
-inspect command opens the persisted database in a new process and prints every stored
-source and chunk, providing a simple persistence and traceability check. These actions
-are also available through the web interface.
+### Gather and refresh
 
-The four initial Australian sources cover the product, pricing, small-business users,
-and accounting partners. They are configured in
-`src/server/research/sources.ts`. To replace a page, keep its stable `key` and change
-its URL; to add a page, add a unique key and URL while keeping the total between three
-and five.
+1. React sends `POST /api/research/gather` with `{ "refresh": false }` for Gather or `{ "refresh": true }` for Refresh.
+2. Express validates the request and calls the gather service.
+3. Normal Gather reuses a complete record. Refresh, or a missing record, downloads HTML from the configured URL.
+4. Cheerio removes scripts, navigation, forms, cookie/modal elements, and other page noise, then extracts headings, paragraphs, lists, and table text.
+5. The chunker produces passages of at most 1,200 characters, with up to 180 characters of paragraph overlap where possible.
+6. A SHA-256 content hash is calculated. The source and replacement chunks are committed in one SQLite transaction.
+7. Express returns JSON with fetched, reused, and failed counts plus per-source events; React renders the response.
 
-The local database path is controlled by `RESEARCH_DB_PATH` and defaults to
-`data/research.db`. Database files and `.env` are ignored by Git. The repository
-contains processing code and a synthetic HTML test fixture, not downloaded Xero
-content.
+### Question and answer
 
-## Retrieve evidence
+1. React sends `POST /api/research/answer` with `{ "question": "..." }`.
+2. Express rejects an empty or overlong question.
+3. The answer service reads existing chunks from SQLite; it cannot call the page fetcher or chunker.
+4. BM25 tokenises the question, applies small synonym expansions and metadata boosts, ranks the corpus, and returns at most five chunks labelled `E1` to `E5`.
+5. Query-term coverage classifies retrieval as `strong`, `weak`, or `none`. Weak or absent evidence returns `insufficient_evidence` without Gemini.
+6. For strong retrieval, only the question and Top 5 passages are sent to Gemini. It proposes structured JSON containing an answer, citation IDs, and an insufficient-evidence flag.
+7. Backend code validates the JSON, permits only supplied IDs, and requires inline markers such as `[E1]` to exactly match the citation array.
+8. Valid IDs are mapped to stored titles, URLs, retrieval times, and exact passages. The backend returns the answer, evidence, retrieval/model metadata, and workflow events to React.
 
-Inspect retrieval independently from the terminal:
+Evidence is assembled by the backend because it owns the retrieved records and the allow-list of valid IDs. The browser therefore cannot invent a citation or attach a different passage to an answer.
 
-```bash
-npm run research:retrieve -- "What pricing plans does Xero offer in Australia?"
-```
+## HTTP API
 
-The retrieval service reads the stored chunks, normalises useful question terms,
-applies small transparent synonym expansions, and ranks lexical matches with BM25.
-Source titles, keys and URLs receive a modest metadata boost. It returns at most the
-Top 5 matched chunks with an evidence label, database chunk ID, source title, URL,
-retrieval date, score, query coverage and matched terms. The raw score orders chunks
-within one search; it is not a probability and should not be compared across unrelated
-queries.
+| Method and path | Purpose | Important responses |
+| --- | --- | --- |
+| `GET /api/health` | Confirms that the API is running. | `200` |
+| `GET /api/research` | Lists stored sources. | `200` |
+| `POST /api/research/gather` | Gathers or force-refreshes sources. | `200`; per-source failures are included in the result |
+| `POST /api/research/retrieve` | Returns ranked evidence without a model call. | `200`, `400` |
+| `POST /api/research/answer` | Runs grounded question answering. | `200`, `400`, `502`, `503` |
+| `GET /api/research/sources/:sourceId` | Returns one stored source and its chunks. | `200`, `400`, `404` |
+| `POST /api/research/demo/refresh-failure` | Runs the synthetic HTTP 503 safety demonstration. | `200`, or `409` without stored research |
 
-Query coverage produces a visible `strong`, `weak` or `none` match label. For example,
-a question about Martian weather may overlap with Xero's phrase “cash-flow forecast”,
-but only one question concept is covered, so the result is marked weak and generation
-is skipped.
+`400` means invalid input, `404` means a source does not exist, `409` means the demonstration cannot run in the current state, `502` means a model/upstream execution or validation failure, and `503` means the model is not configured. Unhandled internal failures use `500`. Controlled error responses do not contain the API key.
 
-BM25 is appropriate for the initial 33-chunk corpus because it is deterministic,
-inspectable, credential-free and incurs no model or embedding cost. Its main weakness
-is vocabulary mismatch; if the corpus grows substantially or users rely on paraphrases,
-a vector or hybrid lexical/vector retrieval stage would be a justified next step.
+## Persistence, reuse, and refresh safety
 
-## Generate a grounded answer
+The default database is `data/research.db`, a local SQLite file excluded from Git.
 
-The runtime model is separate from development assistants such as Codex. The default
-provider is Google's `gemini-3.1-flash-lite`, selected for structured JSON output and
-its current free tier. Create a key in
-[Google AI Studio](https://aistudio.google.com/app/apikey), copy `.env.example` to
-`.env`, and set `GEMINI_API_KEY` locally. ChatGPT subscriptions do not supply this API
-credential.
+- `sources` stores key, URL, title, successful retrieval time, SHA-256 hash, and cleaned full text. Integer `id` is the primary key; keys and URLs are unique.
+- `chunks` stores passage text, position, and a `source_id` foreign key. A source cannot have two chunks at the same position.
+- Foreign keys are enabled and source deletion cascades to chunks. WAL mode and a five-second busy timeout are enabled.
 
-```bash
-npm run research:ask -- "What pricing plans does Xero offer in Australia?"
-```
+Normal Gather reuses stored sources and chunks without web requests or processing. Questions always read those chunks, although each supported question may make a new Gemini call and produce different wording.
 
-The same workflow is available from the web question form. Its Answer, Supporting
-Evidence and Activity Log sections expose the result, validated source passages, and
-whether a model call occurred.
+Refresh fetches, extracts, and chunks first; it replaces the record only when new material is ready. Source/chunk replacement uses `BEGIN IMMEDIATE`, `COMMIT`, and `ROLLBACK`. A failed download or extraction leaves content, hash, chunks, and successful `retrievedAt` unchanged. The UI separately shows the last attempted refresh and last successful retrieval.
 
-For strong retrieval, the backend sends only the question and Top 5 evidence passages
-to the `ModelProvider`. The prompt forbids outside knowledge and requires inline `[E#]`
-markers plus a JSON citation list. A JSON Schema constrains generation; application
-code then rejects malformed JSON, missing citations, unknown IDs, or disagreement
-between inline markers and the citation list. Valid IDs are mapped server-side to the
-stored title, URL, retrieval time and exact supporting text. Weak or absent retrieval
-returns `insufficient_evidence` without a model call.
-
-The API key never reaches React, logs or Git. The provider uses a 30-second timeout,
-does not request provider-side storage, and reports token usage when available. Free
-tier limits and policies may change; public Xero passages only are sent in this
-exercise. See the official [structured-output documentation](https://ai.google.dev/gemini-api/docs/structured-output).
-
-## Offline verification
+## Offline tests
 
 ```bash
-npm run typecheck
 npm test
+npm run typecheck
 npm run build
 ```
 
-The credential-free tests cover HTML noise removal, bounded chunk creation, database
-persistence after reopening, configuration-driven source replacement, retrieval
-ranking, Top K limits, traceable citations, invalid model JSON/IDs, weak-evidence
-short-circuiting and provider HTTP failure. Tests use local HTML fixtures, in-memory
-SQLite, injected fetch functions and a stub model provider; they do not access Xero or
-Gemini. The real extraction, chunking, repository, retrieval, answer validation and
-workflow-event code still runs. Only the two external boundaries are replaced, so this
-is not a mock-only application. Compact run records are in `evaluation/`, including the
-[successful real-model run](evaluation/step-4-live.json) and the
-[credential-free Step 6 verification](evaluation/step-6-offline.json).
+The current suite contains 21 Vitest tests across five files. It covers retrieval ranking and Top K, extraction and chunk bounds, SQLite persistence, source replacement, reuse without fetch/processing, insufficient evidence, repeated model calls without refetching, invalid model output/citations, provider failures, failed-refresh preservation, and the four evaluation-case rules.
 
-## Reuse, refresh and activity
+Tests require no key and make no Xero or Gemini request. Local HTML fixtures, injected mock fetch functions, in-memory SQLite, and a stub model replace external boundaries. Real extraction, chunking, repository, retrieval, workflow, and citation-validation code still runs; this is not a mock-only application.
 
-Question answering and page gathering are separate backend paths. Asking a question
-reads stored chunks from SQLite and may call Gemini, but it cannot invoke the page
-fetcher or chunker. **Gather / reuse** skips network and processing for an unchanged,
-successfully stored source. **Refresh all** explicitly fetches and atomically replaces
-each source; a failed refresh leaves the last known-good evidence and retrieval time
-unchanged.
-
-The web Activity Log displays backend workflow events such as `SOURCE_REUSED`,
-`SOURCE_FETCHED`, `SOURCE_PROCESSED`, `RETRIEVAL_COMPLETED`,
-`MODEL_CALL_STARTED`, and `MODEL_CALL_COMPLETED`. This lets a reviewer compare reuse,
-refresh and repeated-question runs without reading source code. Tests also assert that
-an unchanged Gather makes zero fetch, extraction and chunking calls, while consecutive
-supported questions make separate model calls.
-
-## Failure handling
-
-The Activity Log includes a **Demonstrate safe failure** action. It runs the production
-refresh workflow for one stored source with an injected synthetic HTTP 503 response.
-No live request or model call occurs. The result visibly separates the latest attempted
-refresh time from the last successful retrieval time and confirms that the old URL,
-content hash, chunks and `retrievedAt` remain unchanged and queryable.
-
-Real refreshes follow the same ordering: fetch, extract and chunk first; only then call
-`saveSource`. Source and chunk replacement occurs in one SQLite transaction, with a
-rollback on persistence failure. We therefore never delete last-known-good evidence
-before a replacement is ready. Provider errors expose a controlled status and message,
-not request headers or API keys, and a failed refresh cannot create an answer. The
-credential-free result is recorded in
-[`evaluation/step-7-offline.json`](evaluation/step-7-offline.json).
+Verified record: [`evaluation/step-8-offline.json`](evaluation/step-8-offline.json).
 
 ## Evaluation
 
-Step 8 separates deterministic automated testing from model-quality evaluation.
-Unit tests check focused rules such as chunk bounds, BM25 ranking and citation
-validation. Integration tests connect real internal components through in-memory
-SQLite, for example fetch → extraction → chunking → persistence and retrieval →
-model proposal → citation validation. Mock fetch and the stub model replace only
-network boundaries, keeping the suite repeatable, credential-free and free of Xero or
-Gemini cost.
+Automated tests prove deterministic software behaviour. Evaluation checks whether real model answers are supported by supplied evidence; valid JSON alone cannot prove semantic correctness.
 
-Run the complete offline gate with:
-
-```bash
-npm test
-npm run typecheck
-npm run build
-```
-
-The current gate contains 21 tests across five files. It includes reuse, insufficient
-evidence, failed-refresh preservation, invalid-citation rejection and correct-source
-retrieval. The verified offline record is
-[`evaluation/step-8-offline.json`](evaluation/step-8-offline.json).
-
-After gathering real research and configuring `GEMINI_API_KEY`, run the four-case live
-evaluation once:
+After gathering research and configuring `GEMINI_API_KEY`, run:
 
 ```bash
 npm run evaluation:live
 ```
 
-This executes Supported, Multi-source, Insufficient evidence and Repeated/follow-up
-cases through the real answer workflow and writes
-`evaluation/real-model-run.json`. It records questions, expected behaviour, complete
-cited evidence text, actual outputs, assessments, model/configuration metadata, run
-date and source retrieval dates. No secret value is recorded. The command fails if a
-case does not meet its explicit checks; a human should additionally confirm that each
-claim is actually entailed by its cited passage rather than merely sharing keywords.
+| Case | What it checks |
+| --- | --- |
+| Supported | One source directly supports the answer. |
+| Multi-source | The answer combines evidence from multiple sources. |
+| Insufficient evidence | Weak retrieval refuses explicitly and makes no model call. |
+| Repeated/follow-up | Retrieval dates remain unchanged while a supported follow-up can call the model again. |
 
-## Current milestone
+The command writes [`evaluation/real-model-run.json`](evaluation/real-model-run.json): questions, expectations, complete relevant evidence, outputs, assessments, model/configuration, run date, and retrieval dates. No key is recorded. The committed run passed all four cases, observed three model calls, and confirmed unchanged retrieval dates. A reviewer should still confirm that each material claim is entailed by its cited passages.
 
-Steps 1–8 are implemented, including a successful real Gemini call, explicit refresh,
-validated citations, expandable evidence, backend-produced activity events, a safe
-repeatable HTTP 503 refresh-failure demonstration, 21 automated tests and a repeatable
-four-case real-model evaluation runner.
+## Design decisions
+
+### 1. SQLite instead of an external database
+
+**Choice.** Store source metadata, cleaned text, and chunks in one local SQLite file through Node's built-in API.
+
+**Alternative.** A managed PostgreSQL, MongoDB, or other cloud database.
+
+**Why it fits now.** This is a single-user local MVP with four sources. SQLite provides persistence, constraints, foreign keys, and transactions without accounts, network setup, infrastructure cost, or another process.
+
+**Reconsider when.** Move when concurrent users or server instances need shared state, managed backup/high availability is required, or single-machine operational limits are reached.
+
+### 2. Lexical BM25 instead of embeddings/vector search
+
+**Choice.** Tokenise chunks in application code and rank them with BM25 plus small synonym and source-metadata boosts.
+
+**Alternative.** Generate embeddings and use a vector database, or combine lexical and vector retrieval.
+
+**Why it fits now.** The corpus is small and product terms usually appear in both questions and sources. BM25 is deterministic, inspectable, fast at this scale, offline, credential-free, and has no embedding/vector-hosting cost.
+
+**Reconsider when.** Adopt vector or hybrid retrieval when linear scanning becomes slow, paraphrases cause poor recall, multilingual retrieval is required, or measured evaluation shows inadequate retrieval quality.
+
+## AI usage
+
+### Runtime AI
+
+The implemented provider is Google Gemini, accessed server-side through the Gemini Interactions API using `GEMINI_API_KEY`. The default model is `gemini-3.1-flash-lite`. Requests use structured JSON, an 800-token output limit, minimal thinking, no requested provider-side storage, and a 30-second timeout.
+
+Gemini is a constrained answer proposer, not the source of truth. Deterministic code decides whether evidence is strong, which passages are supplied, which IDs are legal, whether output is valid, and which stored passages reach the browser.
+
+### Development AI
+
+ChatGPT/Codex supported planning, implementation, debugging, test design, evaluation design, and documentation. AI-assisted work was checked against the repository, automated tests, real-model evaluation, and manual evidence review. No development-assistant credential is needed at runtime.
+
+## Cost and external calls
+
+| Action | Xero request | Gemini request | Reuses research |
+| --- | --- | --- | --- |
+| First Gather | For missing/incomplete sources | No | Any complete source |
+| Later normal Gather | No when all sources are complete | No | Yes |
+| Refresh all | Once per configured source | No | Old data only when replacement fails |
+| Retrieve | No | No | Yes |
+| Ask, strong | No | Yes | Yes |
+| Ask, weak/none | No | No | Yes |
+| Offline tests | No | No | Fixtures/mocks/in-memory SQLite |
+| Live evaluation | No page fetch inside answer cases | Three calls in the committed run | Yes |
+
+Xero requests consume bandwidth/time and depend on site availability. Gemini calls consume provider quota and may incur charges under the Google account's current pricing. The application reports token usage when available but does not calculate money.
+
+With more data, the main local costs are storing/rechunking more text and linearly scoring more chunks. Model input is bounded to Top 5 passages, but passage length and repeated supported questions still affect token usage.
+
+## Current limitations
+
+- Local development only; no cloud deployment or public URL.
+- No authentication, authorisation, user separation, rate limiting, or production secret management.
+- Four fixed public HTML sources; no user-managed list, scheduler, crawler, or JavaScript-rendering browser.
+- Extraction depends on page structure and may need maintenance after markup changes.
+- Lexical retrieval can miss semantic matches with different vocabulary; this is not vector search.
+- Strength uses query-term coverage heuristics, not a trained relevance classifier.
+- Citation validation checks structure and legal IDs, not full semantic entailment; human evaluation remains necessary.
+- SQLite and in-memory corpus scoring are not intended for high concurrency or very large corpora.
+- Refresh is transactional per source, not across all sources: a failed source is retained while others may update.
+- The project does not calculate Gemini currency cost or guarantee provider/site availability.
+
+## Project map
+
+```text
+src/client/                 React UI and browser API calls
+src/server/routes/          Express HTTP validation and responses
+src/server/research/        Fetch, extraction, chunking, storage, gather/refresh
+src/server/retrieval/       BM25 retrieval and coverage classification
+src/server/model/           Gemini, answer workflow, citation validation
+src/server/evaluation/      Four-case live evaluation runner
+src/shared/                 Shared TypeScript request/response/event contracts
+tests/                      Offline Vitest unit and integration tests
+evaluation/                 Verification and real-model records
+data/                       Local SQLite; database files are ignored by Git
+```
+
+## Demo video
+
+Pending — add the final recording URL here before submission.
