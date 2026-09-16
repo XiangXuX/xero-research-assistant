@@ -122,4 +122,4 @@ Current limitations: local-only operation; no authentication, rate limiting, sch
 
 ## Demo video
 
-Pending — add the private or unlisted 3–5 minute recording URL here before submission.
+[Watch the 3-minute application demonstration](https://youtu.be/veR7dywnl0g)
