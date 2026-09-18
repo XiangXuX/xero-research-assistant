@@ -47,6 +47,7 @@ export function App() {
   const [research, setResearch] = useState<ResearchStateResponse | null>(null);
   const [gatherResult, setGatherResult] = useState<GatherResponse | null>(null);
   const [researchAction, setResearchAction] = useState<ResearchAction>("gather");
+  // `question` stores the current textarea text; `setQuestion` updates it and triggers a re-render.
   const [question, setQuestion] = useState("");
   const [answerResult, setAnswerResult] = useState<AnswerResponse | null>(null);
   const [failureDemo, setFailureDemo] = useState<RefreshFailureDemoResponse | null>(null);
@@ -392,6 +393,7 @@ export function App() {
         <form className="question-form" onSubmit={(event) => void askQuestion(event)}>
           <label htmlFor="question">Question about Xero</label>
           <div className="question-form__controls">
+            {/* `value` displays React state; `onChange` writes the latest textarea value back to state. */}
             <textarea
               id="question"
               name="question"
