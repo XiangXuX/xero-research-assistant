@@ -1,6 +1,17 @@
 # Xero Research Assistant
 
-A local-first TypeScript application that gathers four public Xero Australia pages, stores traceable evidence, and uses Gemini to answer questions. Reviewers can gather or refresh research, inspect sources, expand evidence, and see reuse, model, and failure activity.
+An evidence-grounded research application built with React, TypeScript, Express, SQLite and Gemini. It collects a small, explicit set of public Xero Australia pages, keeps the source text locally, retrieves relevant passages with BM25 and returns answers with citations that can be checked against the stored evidence.
+
+[Watch the 3-minute demo](https://youtu.be/veR7dywnl0g)
+
+## What this project demonstrates
+
+- An end-to-end typed path from React input to an Express API, retrieval workflow, model call and cited response
+- Local persistence with SQLite transactions and last-known-good data protection
+- Deterministic BM25 retrieval before generation, rather than sending an entire corpus to an LLM
+- Runtime model boundaries: insufficient evidence skips Gemini, and invalid citations are rejected
+- Offline unit and integration-style tests at network, database and model boundaries
+- Evaluation artifacts that record retrieval, model activity, evidence and failure behaviour
 
 ## Setup and usage
 
@@ -50,9 +61,9 @@ Open [http://localhost:5173](http://localhost:5173). Vite serves React on 5173 a
 
 | Task | UI | CLI | Network/model behaviour |
 | --- | --- | --- | --- |
-| Gather/reuse | **Gather research** | `npm run research:gather` | Fetches only missing/incomplete sources; otherwise reuses SQLite |
+| Gather/reuse | **Gather missing** | `npm run research:gather` | Fetches only missing/incomplete sources; otherwise reuses SQLite |
 | Force refresh | **Refresh all** | `npm run research:refresh` | Refetches and reprocesses all four pages |
-| Inspect data | **View stored chunks** | `npm run research:inspect` | SQLite only |
+| Inspect data | **Inspect evidence** | `npm run research:inspect` | SQLite only |
 | Retrieve | Supporting Evidence | `npm run research:retrieve -- "What pricing plans does Xero offer in Australia?"` | SQLite only |
 | Ask | **Ask with evidence** | `npm run research:ask -- "What pricing plans does Xero offer in Australia?"` | Never fetches Xero; calls Gemini only for strong retrieval |
 
@@ -77,6 +88,24 @@ flowchart TD
 **Answer path.** `answerQuestion` reads stored chunks only. Lexical BM25, small synonym/metadata boosts, and query-term coverage select up to five passages labelled `E1`–`E5`. Weak evidence returns `insufficient_evidence` without Gemini; strong evidence sends the question and Top 5. The validator rejects malformed JSON, unknown IDs, missing citations, and mismatched inline markers. The backend maps valid IDs to stored text, title, URL, and date, preventing the browser from inventing evidence.
 
 SQLite persists a `sources` row (key, URL, title, retrieval time, SHA-256, cleaned text) and ordered `chunks` linked by `source_id`. Asking and normal Gather reuse these records. A supported question may still make a new Gemini call.
+
+## Project structure
+
+```text
+src/
+├── client/
+│   ├── components/       # research library, grounded answer, source and activity views
+│   ├── lib/              # browser API helper and UI types
+│   └── App.tsx           # application state and workflow orchestration
+├── server/
+│   ├── database/         # SQLite schema and repository
+│   ├── evaluation/       # repeatable workflow evaluation
+│   ├── model/            # Gemini provider, prompt and answer validation
+│   ├── research/         # fetching, extraction, chunking and refresh protection
+│   ├── retrieval/        # BM25 ranking and evidence selection
+│   └── routes/           # Express API endpoints
+└── shared/               # request and response contracts
+```
 
 ## Tests and evaluation
 
@@ -108,11 +137,23 @@ This runs Supported, Multi-source, Insufficient-evidence, and Repeated/follow-up
 
 **Choice:** in-process BM25 with transparent synonym and metadata boosts. **Alternative:** embedding/vector or hybrid retrieval. BM25 is deterministic, inspectable, offline, credential-free, and fast for this small product-language corpus. Reconsider when measured recall suffers from paraphrases or multilingual queries, or corpus growth makes linear scoring too slow.
 
-## AI usage
+## Development ownership and AI assistance
 
-Runtime AI is Google `gemini-3.1-flash-lite`, called server-side through the Gemini Interactions API with structured JSON, an 800-token output limit, minimal thinking, `store: false`, and a 30-second timeout. Application code—not Gemini—selects evidence, decides whether to call the model, validates IDs, and maps citations.
+This project was developed with ChatGPT/Codex as an engineering assistant. I treat that assistance the same way I would treat generated scaffolding or a suggested patch: useful input, but not evidence that the resulting system works.
 
-ChatGPT/Codex assisted planning, implementation, debugging, testing, evaluation, and documentation. One real evaluation exposed a plausible but unsupported plan name and overly short evidence excerpts. We retained complete passages, changed the follow-up to a directly supported question, and repeated the 21-test gate and four-case live run. The committed evaluation JSON records the result.
+| Area | My responsibility | How AI assisted | Verification in this repository |
+| --- | --- | --- | --- |
+| Product scope | Interpreted the task, kept the product local-first and decided what belonged in the MVP | Helped compare possible feature and architecture options | The running UI, documented scope and explicit limitations |
+| Architecture | Chose the final data flow, SQLite persistence, BM25-first retrieval, model boundary and citation-validation rules | Proposed alternatives and challenged design trade-offs | System design, source code and design-decision sections below |
+| Implementation | Directed the build in small stages, integrated changes, inspected behaviour and accepted the final implementation | Drafted code, suggested refactors and helped diagnose failures | Type checking, build output, 21 tests and live workflow runs |
+| Testing and evaluation | Selected the risks that needed protection, ran the checks and reviewed real model output against evidence | Suggested edge cases and helped create test scaffolding | `tests/` and committed `evaluation/*.json` artifacts |
+| Documentation | Chose the claims, limitations and final explanation of the system | Helped edit structure and wording | This README matches the implemented behaviour and commands |
+
+The final technical decisions and the responsibility for verifying the submitted system are mine. AI-generated suggestions were not accepted merely because they compiled; they were exercised through the application, offline tests and recorded evaluation runs. A real-model run exposed a plausible but unsupported plan name and evidence excerpts that were too short. I kept complete supporting passages, changed the unsupported follow-up case and reran the test and evaluation gates.
+
+### Runtime AI boundary
+
+Google `gemini-3.1-flash-lite` is called only on the server through the Gemini Interactions API, with structured JSON, an 800-token output limit, minimal thinking, `store: false` and a 30-second timeout. Application code—not Gemini—selects evidence, decides whether the model should be called, validates evidence IDs and maps citations to stored source text.
 
 ## Cost and limitations
 
@@ -120,6 +161,3 @@ First Gather and explicit Refresh request Xero; later Gather, retrieval, and que
 
 Current limitations: local-only operation; no authentication, rate limiting, scheduler, user-managed sources, cloud deployment, or JavaScript-rendering crawler; extraction may break after page redesigns; lexical retrieval can miss paraphrases; citation validation cannot by itself prove semantic support; SQLite/in-memory scoring are not intended for high concurrency or large corpora. Refresh is transactional per source, not across all sources.
 
-## Demo video
-
-[Watch the 3-minute application demonstration](https://youtu.be/veR7dywnl0g)

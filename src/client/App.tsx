@@ -1,45 +1,32 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   AnswerResponse,
-  ErrorResponse,
   GatherResponse,
   HealthResponse,
-  RefreshFailureDemoResponse,
   ResearchStateResponse,
   SourceDetails,
   WorkflowEvent,
 } from "../shared/contracts.js";
-
-type ConnectionState = "checking" | "connected" | "unavailable";
-type ActivityTone = "info" | "success" | "warning" | "error";
-type ResearchAction = "gather" | "refresh";
-
-interface ActivityEntry {
-  id: number;
-  occurredAt: string;
-  label: string;
-  detail: string;
-  tone: ActivityTone;
-}
+import { ActivityPanel } from "./components/ActivityPanel.js";
+import { AnswerWorkspace } from "./components/AnswerWorkspace.js";
+import { ResearchLibrary } from "./components/ResearchLibrary.js";
+import { SourceDetailsPanel } from "./components/SourceDetailsPanel.js";
+import { requestJson } from "./lib/api.js";
+import type {
+  ActivityEntry,
+  ActivityTone,
+  ConnectionState,
+  ResearchAction,
+} from "./lib/ui-types.js";
 
 let nextActivityId = 1;
 
-async function responseError(response: Response): Promise<Error> {
-  try {
-    const body = (await response.json()) as Partial<ErrorResponse>;
-    const message = body.error || `Request failed with HTTP ${response.status}`;
-    return new Error(body.code ? `${message} (${body.code})` : message);
-  } catch {
-    return new Error(`Request failed with HTTP ${response.status}`);
-  }
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("en-AU", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+function eventTone(event: WorkflowEvent): ActivityTone {
+  if (event.type.endsWith("FAILED")) return "error";
+  if (event.type === "MODEL_CALL_SKIPPED") return "warning";
+  if (event.type.endsWith("COMPLETED") || event.type === "SOURCE_PROCESSED") return "success";
+  return "info";
 }
 
 export function App() {
@@ -47,15 +34,12 @@ export function App() {
   const [research, setResearch] = useState<ResearchStateResponse | null>(null);
   const [gatherResult, setGatherResult] = useState<GatherResponse | null>(null);
   const [researchAction, setResearchAction] = useState<ResearchAction>("gather");
-  // `question` stores the current textarea text; `setQuestion` updates it and triggers a re-render.
   const [question, setQuestion] = useState("");
   const [answerResult, setAnswerResult] = useState<AnswerResponse | null>(null);
-  const [failureDemo, setFailureDemo] = useState<RefreshFailureDemoResponse | null>(null);
   const [selectedSource, setSelectedSource] = useState<SourceDetails | null>(null);
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
   const [isGathering, setIsGathering] = useState(false);
   const [isAnswering, setIsAnswering] = useState(false);
-  const [isDemonstratingFailure, setIsDemonstratingFailure] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function addActivity(
@@ -80,40 +64,26 @@ export function App() {
       occurredAt: event.occurredAt,
       label: event.type,
       detail: event.sourceKey ? `${event.sourceKey}: ${event.detail}` : event.detail,
-      tone:
-        event.type.endsWith("FAILED")
-          ? "error"
-          : event.type === "MODEL_CALL_SKIPPED"
-            ? "warning"
-            : event.type.endsWith("COMPLETED") || event.type === "SOURCE_PROCESSED"
-              ? "success"
-              : "info",
+      tone: eventTone(event),
     }));
     setActivities((current) => [...entries.reverse(), ...current].slice(0, 20));
   }
 
   async function loadResearch(signal?: AbortSignal): Promise<ResearchStateResponse> {
-    const response = await fetch("/api/research", { signal });
-    if (!response.ok) {
-      throw await responseError(response);
-    }
-    const body = (await response.json()) as ResearchStateResponse;
-    setResearch(body);
-    return body;
+    const result = await requestJson<ResearchStateResponse>("/api/research", { signal });
+    setResearch(result);
+    return result;
   }
 
   useEffect(() => {
     const controller = new AbortController();
 
-    async function loadApplication() {
+    async function initialise() {
       try {
-        const response = await fetch("/api/health", { signal: controller.signal });
-        if (!response.ok) {
-          throw await responseError(response);
-        }
-
-        const body = (await response.json()) as HealthResponse;
-        setConnection(body.status === "ok" ? "connected" : "unavailable");
+        const health = await requestJson<HealthResponse>("/api/health", {
+          signal: controller.signal,
+        });
+        setConnection(health.status === "ok" ? "connected" : "unavailable");
         const loadedResearch = await loadResearch(controller.signal);
         addActivity(
           "Application ready",
@@ -121,17 +91,16 @@ export function App() {
           "success",
         );
       } catch (loadError) {
-        if (!(loadError instanceof DOMException && loadError.name === "AbortError")) {
-          const message =
-            loadError instanceof Error ? loadError.message : "Could not load the application.";
-          setConnection("unavailable");
-          setError(message);
-          addActivity("Application unavailable", message, "error");
-        }
+        if (loadError instanceof DOMException && loadError.name === "AbortError") return;
+        const message =
+          loadError instanceof Error ? loadError.message : "Could not load the application.";
+        setConnection("unavailable");
+        setError(message);
+        addActivity("Application unavailable", message, "error");
       }
     }
 
-    void loadApplication();
+    void initialise();
     return () => controller.abort();
   }, []);
 
@@ -143,23 +112,16 @@ export function App() {
     setGatherResult(null);
     addActivity(
       refresh ? "Refresh started" : "Gather started",
-      refresh
-        ? "Fetching and reprocessing every configured source."
-        : "Gathering missing sources and reusing stored research.",
+      refresh ? "Refreshing every configured source." : "Gathering missing sources.",
       "info",
     );
 
     try {
-      const response = await fetch("/api/research/gather", {
+      const result = await requestJson<GatherResponse>("/api/research/gather", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh }),
       });
-      if (!response.ok) {
-        throw await responseError(response);
-      }
-
-      const result = (await response.json()) as GatherResponse;
       setGatherResult(result);
       setSelectedSource(null);
       await loadResearch();
@@ -177,11 +139,7 @@ export function App() {
   async function viewSource(sourceId: number) {
     setError(null);
     try {
-      const response = await fetch(`/api/research/sources/${sourceId}`);
-      if (!response.ok) {
-        throw await responseError(response);
-      }
-      const source = (await response.json()) as SourceDetails;
+      const source = await requestJson<SourceDetails>(`/api/research/sources/${sourceId}`);
       setSelectedSource(source);
       addActivity(
         "Stored source opened",
@@ -195,43 +153,9 @@ export function App() {
     }
   }
 
-  async function runRefreshFailureDemo() {
-    setIsDemonstratingFailure(true);
-    setFailureDemo(null);
-    setError(null);
-    addActivity(
-      "Failure demonstration started",
-      "Simulating an HTTP 503 refresh against one stored source without a live network request.",
-      "info",
-    );
-
-    try {
-      const response = await fetch("/api/research/demo/refresh-failure", {
-        method: "POST",
-      });
-      if (!response.ok) {
-        throw await responseError(response);
-      }
-
-      const result = (await response.json()) as RefreshFailureDemoResponse;
-      setFailureDemo(result);
-      addWorkflowEvents(result.events);
-    } catch (demoError) {
-      const message =
-        demoError instanceof Error ? demoError.message : "Failure demonstration failed.";
-      setError(message);
-      addActivity("Failure demonstration unavailable", message, "error");
-    } finally {
-      setIsDemonstratingFailure(false);
-    }
-  }
-
-  async function askQuestion(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function askQuestion() {
     const submittedQuestion = question.trim();
-    if (!submittedQuestion) {
-      return;
-    }
+    if (!submittedQuestion) return;
 
     setIsAnswering(true);
     setError(null);
@@ -239,21 +163,15 @@ export function App() {
     addActivity("Question submitted", submittedQuestion, "info");
 
     try {
-      const response = await fetch("/api/research/answer", {
+      const result = await requestJson<AnswerResponse>("/api/research/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: submittedQuestion }),
       });
-      if (!response.ok) {
-        throw await responseError(response);
-      }
-
-      const result = (await response.json()) as AnswerResponse;
       setAnswerResult(result);
       addWorkflowEvents(result.events);
     } catch (answerError) {
-      const message =
-        answerError instanceof Error ? answerError.message : "Question answering failed.";
+      const message = answerError instanceof Error ? answerError.message : "Question answering failed.";
       setError(message);
       addActivity("Answer failed", message, "error");
     } finally {
@@ -267,13 +185,13 @@ export function App() {
 
   return (
     <main className="shell">
-      <section className="hero">
+      <header className="hero">
         <div>
-          <p className="eyebrow">Evidence-grounded company research</p>
+          <p className="eyebrow">Evidence-grounded research</p>
           <h1>Xero Research Assistant</h1>
           <p className="description">
-            Gather public Xero pages, retain the useful evidence, and ask a real model
-            questions grounded only in the retrieved passages.
+            Collect public Xero pages once, search the stored evidence, and generate
+            answers whose citations can be checked against the original text.
           </p>
         </div>
         <div className="hero__meta">
@@ -281,358 +199,42 @@ export function App() {
             <span className="status__dot" aria-hidden="true" />
             API {connection}
           </div>
-          <div
-            className={`model-status model-status--${modelConfigured ? "configured" : "missing"}`}
-          >
-            Model {modelConfigured ? "configured" : "not configured"}
+          <div className={`model-status model-status--${modelConfigured ? "configured" : "missing"}`}>
+            Model {modelConfigured ? "ready" : "not configured"}
           </div>
-          <p className="source-count">
-            <strong>{storedCount}</strong> of {configuredCount} sources stored
-          </p>
+          <p className="source-count"><strong>{storedCount}</strong> / {configuredCount} sources</p>
         </div>
-      </section>
+      </header>
 
       {error ? (
         <div className="error error--global" role="alert">
-          <div>
-            <strong>Request failed</strong>
-            <p>{error}</p>
-          </div>
-          <button className="button-secondary" type="button" onClick={() => setError(null)}>
-            Dismiss
-          </button>
+          <div><strong>Request failed</strong><p>{error}</p></div>
+          <button className="button-secondary" type="button" onClick={() => setError(null)}>Dismiss</button>
         </div>
       ) : null}
 
-      <section className="workspace" aria-labelledby="research-heading">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Research sources</p>
-            <h2 id="research-heading">Gather, reuse or refresh evidence</h2>
-            <p>
-              Gather reuses unchanged stored sources. Refresh explicitly fetches and
-              reprocesses all configured pages; failed refreshes leave older evidence intact.
-            </p>
-          </div>
-          <div className="button-group">
-            <button
-              className="button-secondary"
-              type="button"
-              onClick={() => void gatherSources("gather")}
-              disabled={isGathering}
-            >
-              {isGathering && researchAction === "gather" ? "Gathering..." : "Gather / reuse"}
-            </button>
-            <button
-              type="button"
-              onClick={() => void gatherSources("refresh")}
-              disabled={isGathering || storedCount === 0}
-            >
-              {isGathering && researchAction === "refresh" ? "Refreshing..." : "Refresh all"}
-            </button>
-          </div>
-        </div>
+      <ResearchLibrary
+        research={research}
+        isGathering={isGathering}
+        action={researchAction}
+        onGather={gatherSources}
+        onViewSource={viewSource}
+      />
 
-        {research && research.sources.length > 0 ? (
-          <div className="source-grid">
-            {research.sources.map((source) => (
-              <article className="source-card" key={source.id}>
-                <div className="source-card__topline">
-                  <span>{source.key}</span>
-                  <span>{source.chunkCount} chunks</span>
-                </div>
-                <h3>{source.title}</h3>
-                <a href={source.url} target="_blank" rel="noreferrer">
-                  {source.url}
-                </a>
-                <p className="source-card__preview">{source.preview}</p>
-                <dl>
-                  <div>
-                    <dt>Retrieved</dt>
-                    <dd>{formatDate(source.retrievedAt)}</dd>
-                  </div>
-                  <div>
-                    <dt>Stored text</dt>
-                    <dd>{source.contentLength.toLocaleString()} characters</dd>
-                  </div>
-                  <div>
-                    <dt>SHA 256</dt>
-                    <dd><code>{source.contentHash.slice(0, 12)}...</code></dd>
-                  </div>
-                </dl>
-                <button
-                  className="button-secondary"
-                  type="button"
-                  onClick={() => void viewSource(source.id)}
-                >
-                  View stored chunks
-                </button>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <h3>No research stored yet</h3>
-            <p>Run Gather / reuse to fetch the configured public Xero pages.</p>
-          </div>
-        )}
-      </section>
-
-      <section className="question-view" aria-labelledby="question-heading">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Question</p>
-            <h2 id="question-heading">Ask the stored research</h2>
-            <p>
-              The backend retrieves Top 5 evidence chunks, calls Gemini only for a
-              strong match, and validates every citation before returning an answer.
-            </p>
-          </div>
-        </div>
-
-        <form className="question-form" onSubmit={(event) => void askQuestion(event)}>
-          <label htmlFor="question">Question about Xero</label>
-          <div className="question-form__controls">
-            {/* `value` displays React state; `onChange` writes the latest textarea value back to state. */}
-            <textarea
-              id="question"
-              name="question"
-              rows={3}
-              maxLength={500}
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              placeholder="What pricing plans does Xero offer in Australia?"
-            />
-            <button
-              type="submit"
-              disabled={isAnswering || storedCount === 0 || !question.trim()}
-            >
-              {isAnswering ? "Retrieving and answering..." : "Ask with evidence"}
-            </button>
-          </div>
-          {storedCount === 0 ? (
-            <p className="form-hint">Gather research before asking a question.</p>
-          ) : null}
-        </form>
-      </section>
-
-      <section className="answer-view" aria-labelledby="answer-heading">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Answer</p>
-            <h2 id="answer-heading">Grounded response</h2>
-          </div>
-        </div>
-
-        {isAnswering ? (
-          <div className="answer-placeholder" role="status">
-            Retrieving evidence and waiting for the model...
-          </div>
-        ) : answerResult ? (
-          <article
-            className={`answer-card answer-card--${answerResult.status}`}
-            aria-live="polite"
-          >
-            <div className="answer-card__statusline">
-              <span className={`answer-status answer-status--${answerResult.status}`}>
-                {answerResult.status === "answered" ? "Answered" : "Insufficient evidence"}
-              </span>
-              <span>
-                Retrieval: {answerResult.retrieval.matchQuality} · {answerResult.retrieval.results.length}/
-                {answerResult.retrieval.topK} chunks
-              </span>
-            </div>
-            <p className="answer-text">{answerResult.answer}</p>
-            <dl className="answer-metadata">
-              <div>
-                <dt>Model</dt>
-                <dd>
-                  {answerResult.modelCall.occurred
-                    ? `${answerResult.modelCall.provider}/${answerResult.modelCall.model}`
-                    : "Not called"}
-                </dd>
-              </div>
-              <div>
-                <dt>Model activity</dt>
-                <dd>
-                  {answerResult.modelCall.occurred
-                    ? `${answerResult.modelCall.durationMs?.toLocaleString() ?? "—"} ms`
-                    : answerResult.modelCall.reason}
-                </dd>
-              </div>
-              <div>
-                <dt>Citations</dt>
-                <dd>{answerResult.citations.length} validated</dd>
-              </div>
-            </dl>
-          </article>
-        ) : (
-          <div className="answer-placeholder">
-            Submit a question to see the generated answer and model activity.
-          </div>
-        )}
-      </section>
-
-      <section className="supporting-view" aria-labelledby="supporting-heading">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Supporting evidence</p>
-            <h2 id="supporting-heading">Trace claims to stored text</h2>
-            <p>Evidence metadata and text come from the backend after citation validation.</p>
-          </div>
-        </div>
-
-        {answerResult?.citations.length ? (
-          <div className="citation-list">
-            {answerResult.citations.map((citation, index) => (
-              <details className="citation" key={citation.evidenceId} open={index === 0}>
-                <summary>
-                  <strong>{citation.evidenceId}</strong>
-                  <span>{citation.sourceTitle}</span>
-                  <span>Chunk ID {citation.chunkId}</span>
-                </summary>
-                <div className="citation__body">
-                  <a href={citation.sourceUrl} target="_blank" rel="noreferrer">
-                    {citation.sourceUrl}
-                  </a>
-                  <small>Retrieved {formatDate(citation.retrievedAt)}</small>
-                  <blockquote>{citation.supportingText}</blockquote>
-                </div>
-              </details>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <p>
-              {answerResult?.insufficientEvidence
-                ? "No evidence was accepted for this question."
-                : "Validated supporting passages will appear here."}
-            </p>
-          </div>
-        )}
-      </section>
-
-      <section className="activity-view" aria-labelledby="activity-heading">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Activity log</p>
-            <h2 id="activity-heading">Fetch, reuse and model activity</h2>
-            <p>
-              Run the synthetic HTTP 503 demonstration to verify that a failed refresh
-              remains visible while last-known-good evidence stays queryable.
-            </p>
-          </div>
-          <button
-            className="button-danger"
-            type="button"
-            onClick={() => void runRefreshFailureDemo()}
-            disabled={isDemonstratingFailure || storedCount === 0}
-          >
-            {isDemonstratingFailure ? "Simulating failure..." : "Demonstrate safe failure"}
-          </button>
-        </div>
-
-        {failureDemo ? (
-          <article className="failure-demo" aria-live="polite">
-            <div className="failure-demo__heading">
-              <span>Expected failure handled safely</span>
-              <strong>HTTP 503</strong>
-            </div>
-            <p><strong>{failureDemo.source.key}</strong>: {failureDemo.failureMessage}</p>
-            <p className="failure-demo__note">
-              This is a synthetic response. No live network request was made and the
-              normal research database was not modified.
-            </p>
-            <dl className="failure-demo__times">
-              <div>
-                <dt>Last attempted refresh</dt>
-                <dd>{formatDate(failureDemo.lastAttemptedAt)}</dd>
-              </div>
-              <div>
-                <dt>Last successful retrieval</dt>
-                <dd>{formatDate(failureDemo.lastSuccessfullyRetrievedAt)}</dd>
-              </div>
-            </dl>
-            <ul className="failure-checks">
-              <li><strong>Old evidence retained</strong><span>{failureDemo.checks.oldEvidenceRetained ? "Yes" : "No"}</span></li>
-              <li><strong>Old evidence still queryable</strong><span>{failureDemo.checks.oldEvidenceQueryable ? "Yes" : "No"}</span></li>
-              <li><strong>Retrieved time unchanged</strong><span>{failureDemo.checks.retrievedAtUnchanged ? "Yes" : "No"}</span></li>
-              <li><strong>Content hash unchanged</strong><span>{failureDemo.checks.contentHashUnchanged ? "Yes" : "No"}</span></li>
-              <li><strong>Credential exposed</strong><span>{failureDemo.checks.credentialExposed ? "Yes" : "No"}</span></li>
-              <li><strong>Answer generated</strong><span>{failureDemo.checks.answerGenerated ? "Yes" : "No"}</span></li>
-            </ul>
-          </article>
-        ) : null}
-
-        {gatherResult ? (
-          <div className="activity activity--latest" aria-live="polite">
-            <div className="activity__summary">
-              <strong>Latest {researchAction}</strong>
-              <span>{gatherResult.fetched} fetched</span>
-              <span>{gatherResult.reused} reused</span>
-              <span>{gatherResult.failed} failed</span>
-            </div>
-            <ul>
-              {gatherResult.results.map((result) => (
-                <li key={result.key}>
-                  <span className={`result-badge result-badge--${result.status}`}>
-                    {result.status}
-                  </span>
-                  <span><strong>{result.key}</strong> {result.message}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {activities.length > 0 ? (
-          <ol className="event-list" aria-live="polite">
-            {activities.map((activity) => (
-              <li className={`event event--${activity.tone}`} key={activity.id}>
-                <time dateTime={activity.occurredAt}>{formatDate(activity.occurredAt)}</time>
-                <div>
-                  <strong>{activity.label}</strong>
-                  <p>{activity.detail}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <div className="empty-state"><p>No activity recorded in this session yet.</p></div>
-        )}
-      </section>
+      <AnswerWorkspace
+        question={question}
+        answer={answerResult}
+        isAnswering={isAnswering}
+        storedSourceCount={storedCount}
+        onQuestionChange={setQuestion}
+        onAsk={askQuestion}
+      />
 
       {selectedSource ? (
-        <section className="evidence-view" aria-labelledby="evidence-heading">
-          <div className="section-heading">
-            <div>
-              <p className="section-kicker">Stored source view</p>
-              <h2 id="evidence-heading">{selectedSource.title}</h2>
-              <a href={selectedSource.url} target="_blank" rel="noreferrer">
-                {selectedSource.url}
-              </a>
-            </div>
-            <button
-              className="button-secondary"
-              type="button"
-              onClick={() => setSelectedSource(null)}
-            >
-              Close source
-            </button>
-          </div>
-          <p className="source-view-meta">
-            Retrieved {formatDate(selectedSource.retrievedAt)} · {selectedSource.chunks.length} stored chunks
-          </p>
-          <ol className="chunk-list">
-            {selectedSource.chunks.map((chunk) => (
-              <li key={chunk.id}>
-                <span>Chunk {chunk.position + 1} · ID {chunk.id}</span>
-                <p>{chunk.content}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
+        <SourceDetailsPanel source={selectedSource} onClose={() => setSelectedSource(null)} />
       ) : null}
+
+      <ActivityPanel activities={activities} gatherResult={gatherResult} action={researchAction} />
     </main>
   );
 }
